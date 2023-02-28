@@ -1,8 +1,19 @@
 #include <Siv3D.hpp>
+#include "WebSocket.hpp"
 
 void Main() {
 	// Set background color to sky blue
 	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
+
+	WebSocket ws("ws://snowball-server.tqk.trap.show/api/ws");
+
+	{
+		JSON json, args;
+		args[U"message"] = U"Hello World!";
+		json[U"Method"] = U"message";
+		json[U"Args"] = args;
+		ws.SendText(json.formatUTF8Minimum());
+	}
 
 	// Create a new font
 	const Font font{60};
@@ -26,6 +37,12 @@ void Main() {
 	Print << U"Push [A] key";
 
 	while(System::Update()) {
+		while(ws.hasReceivedText()) {
+			// JSON json = JSON::Parse(
+			// 		Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer()));
+			Print << Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
+		}
+
 		// Draw a texture
 		texture.draw(200, 200);
 
@@ -48,6 +65,18 @@ void Main() {
 		if(SimpleGUI::Button(U"Button", Vec2{640, 40})) {
 			// Move the coordinates to a random position in the screen
 			emojiPos = RandomVec2(Scene::Rect());
+		}
+
+		if(KeyC.down()) {
+			JSON json;
+			json[U"cursor"] = Cursor::Pos();
+			ws.SendText(json.formatUTF8Minimum());
+		}
+
+		if(KeyA.down()) {
+			JSON json;
+			json[U"msg"] = U"Key A!";
+			ws.SendText(json.formatUTF8Minimum());
 		}
 	}
 }
