@@ -6,14 +6,25 @@ on:
       name:
         description: Trigger reason
         required: true
-        default: 'Auto-Update'
+        default: "Auto-Update"
       url:
         description: Release URL
         required: true
-        default: 'https://github.com/nokotan/OpenSiv3D/releases/download/v0.6.5/OpenSiv3D-wasm.tgz'
+        default: "https://github.com/nokotan/OpenSiv3D/releases/download/v0.6.5/OpenSiv3D-wasm.tgz"
 
 jobs:
   update:
+    permissions:
+      actions: write
+      checks: write
+      contents: write
+      deployments: write
+      issues: write
+      packages: write
+      pull-requests: write
+      repository-projects: write
+      security-events: write
+      statuses: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
