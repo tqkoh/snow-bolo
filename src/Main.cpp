@@ -1,82 +1,110 @@
+// #include <Siv3D.hpp>
+// #include "scenes/Game.hpp"
+// #include "scenes/Title.hpp"
+
+enum MainState {
+	TITLE,
+	GAME,
+
+	MainState_NUM
+};
+
 #include <Siv3D.hpp>
-#include "WebSocket.hpp"
+#include "lib/WebSocket.hpp"
+#include "scenes/Game.hpp"
+#include "scenes/Title.hpp"
+
+EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
+EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
-	// Set background color to sky blue
-	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
+	Console << U"Hello World!";
 
-	WebSocket ws("ws://snowball-server.tqk.trap.show/api/ws");
+	WebSocket webSocket("ws://snowball-server.tqk.trap.show/api/ws");
+	// ws-test.tqk.trap.show/api/ws
 
 	{
-		JSON json, args;
-		args[U"message"] = U"Hello World!";
-		json[U"Method"] = U"message";
-		json[U"Args"] = args;
-		ws.SendText(json.formatUTF8Minimum());
+		JSON json;
+		json[U"msg"] = U"Hello World!";
+		webSocket.SendText(json.formatUTF8Minimum());
 	}
 
-	// Create a new font
+	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
 	const Font font{60};
 
-	// Create a new emoji font
-	const Font emojiFont{60, Typeface::ColorEmoji};
+	std::map<String, s3d::Point> m_users;
+	String uid;
 
-	// Set emojiFont as a fallback
-	font.addFallback(emojiFont);
-
-	// Create a texture from an image file
-	const Texture texture{U"example/windmill.png"};
-
-	// Create a texture from an emoji
-	const Texture emoji{U"🐈"_emoji};
-
-	// Coordinates of the emoji
-	Vec2 emojiPos{300, 150};
-
-	// Print a text
-	Print << U"Push [A] key";
+	Title title;
+	Game game;
+	MainState state = TITLE;
+	Window::Resize(GetCanvasWidth(), GetCanvasHeight());
 
 	while(System::Update()) {
-		while(ws.hasReceivedText()) {
-			// JSON json = JSON::Parse(
-			// 		Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer()));
-			Print << Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
+		switch(state) {
+			case TITLE:
+				if(KeyEnter.down()) {
+					state = GAME;
+				}
+
+				if(title.update() == 1) {
+					state = GAME;
+					game.init();
+					Print << U"game init";
+				}
+				title.draw();
+				break;
+			case GAME:
+				Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
+
+				if(game.update() == 1) {
+					state = TITLE;
+					title.init();
+					Print << U"game end";
+				}
+				game.draw();
+				break;
+			default:
+				state = TITLE;
+				break;
 		}
+		while(webSocket.hasReceivedText()) {
+			JSON json = JSON::Parse(
+					Unicode::FromUTF8(webSocket.getReceivedTextAndPopFromBuffer()));
+			// if(json[U"type"].getString() == U"whoami") {
+			// 	uid = json[U"uid"].getString();
+			// } else if(json[U"uid"].getString() != uid) {
+			// 	auto uid = json[U"uid"].getString();
+			// 	auto cursor = json[U"cursor"].getOpt<s3d::Point>();
+			// 	if(cursor) {
+			// 		m_users[uid] = cursor.value();
+			// 	}
 
-		// Draw a texture
-		texture.draw(200, 200);
+			// 	if(json[U"type"].getString() == U"close") {
+			// 		m_users[uid].clear();
+			// 	}
+			// }
+		}	 // 		switch(state) {
+			 // 			case TITLE:
+			 // 				if(KeyEnter.down()) {
+			 // 					state = GAME;
+			 // 				}
 
-		// Put a text in the middle of the screen
-		font(U"Hello, Siv3D!🚀").drawAt(Scene::Center(), Palette::Black);
+		// Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
 
-		// Draw a texture with animated size
-		emoji.resized(100 + Periodic::Sine0_1(1s) * 20).drawAt(emojiPos);
-
-		// Draw a red transparent circle that follows the mouse cursor
-		Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
-
-		// When [A] key is down
-		if(KeyA.down()) {
-			// Print a randomly selected text
-			Print << Sample({U"Hello!", U"こんにちは", U"你好", U"안녕하세요?"});
-		}
-
-		// When [Button] is pushed
-		if(SimpleGUI::Button(U"Button", Vec2{640, 40})) {
-			// Move the coordinates to a random position in the screen
-			emojiPos = RandomVec2(Scene::Rect());
-		}
+		// for(const auto& user : m_users)
+		// 	Circle{user.second, 40}.draw(ColorF{1, 0, 0, 0.25});
 
 		if(KeyC.down()) {
 			JSON json;
 			json[U"cursor"] = Cursor::Pos();
-			ws.SendText(json.formatUTF8Minimum());
+			webSocket.SendText(json.formatUTF8Minimum());
 		}
 
 		if(KeyA.down()) {
 			JSON json;
-			json[U"msg"] = U"Key A!";
-			ws.SendText(json.formatUTF8Minimum());
+			json[U"msg"] = U"Key A";
+			webSocket.SendText(json.formatUTF8Minimum());
 		}
 	}
 }
