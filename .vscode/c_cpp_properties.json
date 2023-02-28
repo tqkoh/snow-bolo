@@ -3,26 +3,36 @@
         {
             "name": "Emscripten on Windows",
             "includePath": [
-                "${workspaceFolder}/**",
                 "${workspaceFolder}/OpenSiv3D/include",
                 "${workspaceFolder}/OpenSiv3D/include/ThirdParty"
             ],
             "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc.bat",
             "cStandard": "c11",
             "cppStandard": "c++20",
-            "intelliSenseMode": "clang-x86"
+            "intelliSenseMode": "clang-x86",
+            "defines": [
+                "__EMSCRIPTEN__"
+            ],
+            "forcedInclude": [
+                "${workspaceFolder}/.vscode/Undefs.h"
+            ]
         },
         {
-            "name": "Emscripten on macOS/Linux",
+            "name": "Emscripten on Linux",
             "includePath": [
-                "${workspaceFolder}/**",
                 "${workspaceFolder}/OpenSiv3D/include",
                 "${workspaceFolder}/OpenSiv3D/include/ThirdParty"
             ],
             "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc",
             "cStandard": "c11",
             "cppStandard": "c++20",
-            "intelliSenseMode": "clang-x86"
+            "intelliSenseMode": "linux-clang-x86",
+            "defines": [
+                "__EMSCRIPTEN__"
+            ],
+            "forcedInclude": [
+                "${workspaceFolder}/.vscode/Undefs.h"
+            ]
         }
     ],
     "version": 4

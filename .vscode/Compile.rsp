@@ -1,6 +1,7 @@
-Main.cpp
+./src/Main.cpp
 
 -std=c++20
 -D_XM_NO_INTRINSICS_
--IOpenSiv3D/include/Siv3D
--IOpenSiv3D/include/Siv3D/ThirdParty
+-Isrc
+-IOpenSiv3D/include
+-IOpenSiv3D/include/ThirdParty
