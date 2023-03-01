@@ -46,8 +46,6 @@ void Main() {
 						state = GAME;
 						Title::end();
 						Game::init();
-
-						Print << U"game init";
 					}
 					Title::draw();
 					break;
@@ -56,7 +54,6 @@ void Main() {
 					if(Game::update() == 1) {
 						state = TITLE;
 						Title::init();
-						Print << U"game end";
 					}
 					Game::draw();
 					break;

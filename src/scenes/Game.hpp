@@ -22,10 +22,13 @@ Point center(resolution / 2);
 std::unique_ptr<Font> font;
 JSON previnput;
 
+std::unique_ptr<Texture> prepareImage;
+
 void init() {
 	state = PREPARE;
 	name.active = true;
 	font = std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
+	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
 }
 int update() {
 	switch(state) {
@@ -100,11 +103,9 @@ void draw() {
 	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11, Palette::Green);
 	switch(state) {
 		case PREPARE:
-
-			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100);
-			Print << name.text;
-			(*font)(U" your name?:").drawAt(Vec2(center.x, center.y), Palette::Black);
-			(*font)(name.text).drawAt(Vec2(center.x, center.y + 30), Palette::Black);
+			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
+			prepareImage->draw(0, 0);
+			(*font)(name.text).drawAt(Vec2(300, center.y), textColor1);
 			break;
 		case PLAYING:
 			Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
