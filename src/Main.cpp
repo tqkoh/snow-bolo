@@ -18,25 +18,23 @@ EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
-	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
-
-	const Size resolution(384, 216);
-	const int scaling = 8;
+	Scene::SetTextureFilter(TextureFilter::Nearest);
 	Window::Resize(resolution * scaling);
 
-	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
+	Scene::SetBackground(backColor);
 
-	const ScopedRenderStates2D renderState(SamplerState::ClampAniso);
+	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 
 	MainState state = TITLE;	// TITLE;
+	Title::init();
 
 	// tmp
 
 	while(System::Update()) {
-		renderTexture.clear(ColorF{0.8, 0.9, 1.0});
+		renderTexture.clear(backColor);
 		{
-			ScopedRenderTarget2D renderTarget(renderTexture);
+			const ScopedRenderTarget2D renderTarget(renderTexture);
 
 			switch(state) {
 				case TITLE:
@@ -73,8 +71,6 @@ void Main() {
 	}
 }
 
-// #include <Siv3D.hpp>	// OpenSiv3D v0.6.6
-
 // void Main() {
 // 	Scene::SetTextureFilter(TextureFilter::Nearest);
 
@@ -90,7 +86,6 @@ void Main() {
 
 // 	// 低解像度のレンダーテクスチャ
 // 	RenderTexture renderTexture(resolution);
-// 	Font font(30);
 
 // 	while(System::Update()) {
 // 		renderTexture.clear(bgColor);
@@ -98,7 +93,6 @@ void Main() {
 // 		{
 // 			const ScopedRenderTarget2D renderTarget(renderTexture);
 
-// 			font(U"Hello, Siv3D!🐣").drawAt(Scene::Center() / 4, Palette::Black);
 // 			RectF(resolution * 0.5 - Vec2(20, 20), 40, 40)
 // 					.rotated(Scene::Time() * 0.3)
 // 					.draw(Palette::Black);
@@ -152,7 +146,6 @@ void Mains() {
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 
-	TitleC title;
 	MainState mainState = TITLE;
 	drawHello2 hello2;
 

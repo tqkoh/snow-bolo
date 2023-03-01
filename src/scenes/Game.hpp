@@ -1,24 +1,7 @@
 #pragma once
 
-#define DEV 2
-
-#if DEV == 0
-#define API_URL "wss://snowball-server.tqk.trap.show/api/ws"
-#elif DEV == 1
-#define API_URL "ws://dev.snowball-server.tqk.trap.show/api/ws"
-#elif DEV == 2
-#define API_URL "ws://localhost:3939/api/ws"
-#else
-#define API_URL ""
-#endif
-
-// #define FONT_PATH U"example/font/DotGothic16/DotGothic16-Regular.ttf"
-#define FONT_PATH U"example/font/PixelMplus10-Regular.ttf"
-
-const Size resolution(384, 216);
-const int scaling = 8;
-
 #include <Siv3D.hpp>
+#include "../Const.hpp"
 #include "lib/WebSocket.hpp"
 
 enum GameState {
@@ -42,7 +25,7 @@ JSON previnput;
 void init() {
 	state = PREPARE;
 	name.active = true;
-	font = std::make_unique<Font>(20, FONT_PATH, FontStyle::Bitmap);
+	font = std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
 }
 int update() {
 	switch(state) {
@@ -80,21 +63,13 @@ int update() {
 				json[U"Args"] = input;
 
 				// look at the md #2
-				if(input[U"left"] || input[U"right"]) {
+				if(input[U"left"] || input[U"right"] ||
+					 input[U"W"] != previnput[U"W"] || input[U"A"] != previnput[U"A"] ||
+					 input[U"S"] != previnput[U"S"] || input[U"D"] != previnput[U"D"] ||
+					 input[U"left"] != previnput[U"left"] ||
+					 input[U"right"] != previnput[U"right"]) {
 					ws.SendText(json.formatUTF8Minimum());
 					previnput = input;
-				} else {
-					for(auto e : input) {
-						if(e.key == U"dy" || e.key == U"dx") {
-							continue;
-						}
-
-						if(previnput[e.key] != e.value) {
-							ws.SendText(json.formatUTF8Minimum());
-							previnput = input;
-							break;
-						}
-					}
 				}
 			}
 			break;
@@ -128,11 +103,13 @@ void draw() {
 
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100);
 			Print << name.text;
-			(*font)(name.text).drawAt(Scene::Center() / scaling, Palette::Black);
+			(*font)(U" your name?:").drawAt(Vec2(center.x, center.y), Palette::Black);
+			(*font)(name.text).drawAt(Vec2(center.x, center.y + 30), Palette::Black);
 			break;
 		case PLAYING:
 			Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 			break;
+
 		case DEAD:
 			break;
 		default:

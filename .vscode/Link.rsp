@@ -50,6 +50,7 @@
 -s MODULARIZE=1
 --preload-file resources@/resources
 --preload-file example@/example
+--preload-file assets@/assets
 --shell-file OpenSiv3D/Templates/Embeddable/web-player.html
 --pre-js OpenSiv3D/lib/Siv3D/Siv3D.pre.js
 --post-js OpenSiv3D/lib/Siv3D/Siv3D.post.js
