@@ -20,23 +20,14 @@ EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 void Main() {
 	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
 
-	// Font font(30, U"example/font/DotGothic16/DotGothic16-Regular.ttf",
-	// 					FontStyle::Bitmap);
-	Font font(30, U"example/font/DotGothic16/DotGothic16-Regular.ttf",
-						FontStyle::Bitmap);
-	const Font emojiFont{30, Typeface::ColorEmoji};
-	font.addFallback(emojiFont);
-
 	const Size resolution(384, 216);
-	const int scaling = 4;
+	const int scaling = 8;
 	Window::Resize(resolution * scaling);
 
 	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
 
-	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
+	const ScopedRenderStates2D renderState(SamplerState::ClampAniso);
 	RenderTexture renderTexture(resolution);
-
-	TitleC title;
 
 	MainState state = TITLE;	// TITLE;
 
@@ -47,28 +38,26 @@ void Main() {
 		{
 			ScopedRenderTarget2D renderTarget(renderTexture);
 
-			font(U"hello").drawAt(Scene::Center() / 10, Palette::Black);
-			font(U"hello").draw(Scene::Center() / 9, Palette::Red);
 			switch(state) {
 				case TITLE:
 					if(KeyEnter.down()) {
 						state = GAME;
 					}
 
-					if(title.update() == 1) {
+					if(Title::update() == 1) {
 						state = GAME;
-						title.end();
+						Title::end();
 						Game::init();
 
 						Print << U"game init";
 					}
-					title.draw();
+					Title::draw();
 					break;
 
 				case GAME:
 					if(Game::update() == 1) {
 						state = TITLE;
-						title.init();
+						Title::init();
 						Print << U"game end";
 					}
 					Game::draw();
@@ -78,16 +67,6 @@ void Main() {
 					// state = TITLE;
 					break;
 			}
-			// 		switch(state) {
-			// 			case TITLE:
-			// 				if(KeyEnter.down()) {
-			// 					state = GAME;
-			// 				}
-
-			// Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
-
-			// for(const auto& user : m_users)
-			// 	Circle{user.second, 40}.draw(ColorF{1, 0, 0, 0.25});
 		}
 
 		renderTexture.scaled(scaling).draw();
