@@ -1,14 +1,11 @@
 #pragma once
 
 #include <Siv3D.hpp>
-#include "Scoped.hpp"
 
-class Title {
-	Font font;
-
+class TitleC {
 public:
-	Title() : font(10) {}
-	~Title() {}
+	TitleC() {}
+	~TitleC() {}
 	void init() {}
 	void end() {}
 	int update() {	// 1: start game
@@ -28,3 +25,15 @@ public:
 		return;
 	}
 };
+
+namespace Title {
+void init() {}
+void end() {}
+int update() {
+	if(KeyEnter.down()) {
+		return 1;
+	}
+	return 0;
+}
+void draw() {}
+}	 // namespace Title
