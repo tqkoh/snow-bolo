@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/OpenSiv3D/include",
                 "${workspaceFolder}/OpenSiv3D/include/Siv3D",
-                "${workspaceFolder}/OpenSiv3D/include/Siv3D/ThirdParty"
+                "${workspaceFolder}/OpenSiv3D/include/ThirdParty",
+                "${workspaceFolder}/OpenSiv3D/include/Siv3D/ThirdParty",
+                "${workspaceFolder}/src"
             ],
             "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc.bat",
             "cStandard": "c11",
@@ -23,7 +25,9 @@
             "includePath": [
                 "${workspaceFolder}/OpenSiv3D/include",
                 "${workspaceFolder}/OpenSiv3D/include/Siv3D",
-                "${workspaceFolder}/OpenSiv3D/include/ThirdParty"
+                "${workspaceFolder}/OpenSiv3D/include/ThirdParty",
+                "${workspaceFolder}/OpenSiv3D/include/Siv3D/ThirdParty",
+                "${workspaceFolder}/src"
             ],
             "compilerPath": "${env:EMSDK}/upstream/emscripten/emcc",
             "cStandard": "c11",

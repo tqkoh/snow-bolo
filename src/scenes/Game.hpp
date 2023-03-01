@@ -4,6 +4,7 @@
 #include "lib/WebSocket.hpp"
 
 enum GameState {
+	PREPARE,
 	ALIVE,
 	DEAD,
 
@@ -11,20 +12,12 @@ enum GameState {
 };
 
 class Game {
-	WebSocket ws;
-
 public:
-	Game() : ws("ws://snowball-server.tqk.trap.show/api/ws") {}
+	Game() {}
 	~Game() {}
-	void init(String name = U"test") {
-		JSON json, args;
-		args[U"name"] = name;
-		json[U"Method"] = U"init";
-		json[U"Args"] = args;
-		ws.SendText(json.formatUTF8Minimum());
-	}
-	int update() {
-		if(KeyA.down()) {
+	void init() {}
+	int update(WebSocket& ws) {
+		if(KeyEnter.down()) {
 			return 1;
 		}
 		while(ws.hasReceivedText()) {

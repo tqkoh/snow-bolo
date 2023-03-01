@@ -30,25 +30,31 @@ void Main() {
 	}
 
 	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
-	const Font font{60};
 
 	std::map<String, s3d::Point> m_users;
 	String uid;
 
 	Title title;
 	Game game;
-	MainState state = TITLE;
-	Window::Resize(GetCanvasWidth(), GetCanvasHeight());
+	MainState state = MainState_NUM;	// TITLE;
+	Window::Resize(384, 216);
+
+	// tmp
+	const Font font(60);
+	String text = U"asdf";
+	constexpr Rect area{10, 10, 100, 100};
 
 	while(System::Update()) {
+		font(U"Hello, Siv3D!🚀").drawAt(Scene::Center(), Palette::Black);
 		switch(state) {
 			case TITLE:
 				if(KeyEnter.down()) {
 					state = GAME;
 				}
 
-				if(title.update() == 1) {
+				if(title.update(webSocket) == 1) {
 					state = GAME;
+					title.end();
 					game.init();
 					Print << U"game init";
 				}
@@ -57,7 +63,7 @@ void Main() {
 			case GAME:
 				Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
 
-				if(game.update() == 1) {
+				if(game.update(webSocket) == 1) {
 					state = TITLE;
 					title.init();
 					Print << U"game end";
@@ -65,7 +71,12 @@ void Main() {
 				game.draw();
 				break;
 			default:
-				state = TITLE;
+				TextInput::UpdateText(text);
+				const String editingText = TextInput::GetEditingText();
+				area.draw(ColorF{0.3});
+				font(text + U'|' + editingText).draw(area.stretched(-20));
+
+				// state = TITLE;
 				break;
 		}
 		while(webSocket.hasReceivedText()) {
