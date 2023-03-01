@@ -4,17 +4,17 @@
 
 class Title {
 	Font font;
-	String name;
+	TextEditState name;
 
 public:
-	Title() : name(U"test"), font(10) {}
+	Title() : font(10) {}
 	~Title() {}
 	void init() {}
 	void end() {}
 	int update(WebSocket& ws) {	 // 1: start game
 		if(KeyEnter.down()) {
 			JSON json, args;
-			args[U"name"] = name;
+			args[U"name"] = name.text;
 			json[U"Method"] = U"join";
 			json[U"Args"] = args;
 			ws.SendText(json.formatUTF8Minimum());
@@ -24,9 +24,7 @@ public:
 		return 0;
 	}
 	void draw() {
-		TextInput::UpdateText(name);
-		font(TextInput::GetEditingText()).draw(20, 0, Palette::Black);
-		font(U"aaa").draw(20, 20, Palette::Black);
+		SimpleGUI::TextBox(name, Vec2(10, 10), 100);
 		return;
 	}
 };

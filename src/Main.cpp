@@ -36,16 +36,23 @@ void Main() {
 
 	Title title;
 	Game game;
-	MainState state = MainState_NUM;	// TITLE;
+	MainState state = TITLE;	// TITLE;
 	Window::Resize(384, 216);
 
 	// tmp
-	const Font font(60);
+	const Font font(30, Typeface::Regular, FontStyle::Bitmap);
 	String text = U"asdf";
 	constexpr Rect area{10, 10, 100, 100};
 
 	while(System::Update()) {
-		font(U"Hello, Siv3D!🚀").drawAt(Scene::Center(), Palette::Black);
+		TextInput::UpdateText(text);
+		for(auto e : Keyboard::GetAllInputs()) {
+			Print << e;
+		}
+		const String editingText = TextInput::GetEditingText();
+		area.draw(ColorF{0.3});
+		font(text + U'|' + editingText).draw(area.pos);
+		// font(U"Hello, Siv3D!🚀").drawAt(Scene::Center(), Palette::Black);
 		switch(state) {
 			case TITLE:
 				if(KeyEnter.down()) {
@@ -56,6 +63,7 @@ void Main() {
 					state = GAME;
 					title.end();
 					game.init();
+
 					Print << U"game init";
 				}
 				title.draw();
@@ -71,10 +79,6 @@ void Main() {
 				game.draw();
 				break;
 			default:
-				TextInput::UpdateText(text);
-				const String editingText = TextInput::GetEditingText();
-				area.draw(ColorF{0.3});
-				font(text + U'|' + editingText).draw(area.stretched(-20));
 
 				// state = TITLE;
 				break;
