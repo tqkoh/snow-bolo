@@ -29,6 +29,13 @@ void init() {
 	name.active = true;
 	font = std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
+
+	previnput[U"W"] = false;
+	previnput[U"A"] = false;
+	previnput[U"S"] = false;
+	previnput[U"D"] = false;
+	previnput[U"left"] = MouseL.pressed();
+	previnput[U"right"] = MouseR.pressed();
 }
 int update() {
 	switch(state) {
@@ -66,13 +73,17 @@ int update() {
 				json[U"Args"] = input;
 
 				// look at the md #2
-				if(input[U"left"] || input[U"right"] ||
-					 input[U"W"] != previnput[U"W"] || input[U"A"] != previnput[U"A"] ||
-					 input[U"S"] != previnput[U"S"] || input[U"D"] != previnput[U"D"] ||
-					 input[U"left"] != previnput[U"left"] ||
-					 input[U"right"] != previnput[U"right"]) {
+				if(MouseL.pressed() || MouseR.pressed() ||
+					 KeyW.pressed() != previnput[U"W"].get<bool>() ||
+					 KeyA.pressed() != previnput[U"A"].get<bool>() ||
+					 KeyS.pressed() != previnput[U"S"].get<bool>() ||
+					 KeyD.pressed() != previnput[U"D"].get<bool>() ||
+					 MouseL.pressed() != previnput[U"left"].get<bool>() ||
+					 MouseR.pressed() != previnput[U"right"].get<bool>()) {
 					ws.SendText(json.formatUTF8Minimum());
 					previnput = input;
+
+					std::cout << std::time(nullptr) << std::endl;
 				}
 			}
 			break;

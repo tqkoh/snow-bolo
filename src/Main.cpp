@@ -29,9 +29,9 @@ void Main() {
 	MainState state = TITLE;	// TITLE;
 	Title::init();
 
-	// tmp
-
+	Stopwatch calcTime(StartImmediately::Yes);
 	while(System::Update()) {
+		calcTime.restart();
 		renderTexture.clear(backColor);
 		{
 			const ScopedRenderTarget2D renderTarget(renderTexture);
@@ -65,6 +65,11 @@ void Main() {
 		}
 
 		renderTexture.scaled(scaling).draw();
+
+		double rest = 1. / 60 - calcTime.sF();
+		if(rest > 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(int(rest * 1000)));
+		}
 	}
 }
 
