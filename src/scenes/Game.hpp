@@ -4,6 +4,8 @@
 #include "../Global.hpp"
 #include "lib/WebSocket.hpp"
 
+#define MOD(n, m) (((n) % (m) + (m)) % (m))
+
 enum GameState {
 	PREPARE,
 	PLAYING,
@@ -22,16 +24,21 @@ Point center(resolution / 2);
 std::unique_ptr<Font> font;
 JSON previnput;
 
+std::unique_ptr<Texture> backImage;
+std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
 
 JSON lastUpdate;
 
-int oy = 0, ox = 0;
+float oY = 0, oX = 0, oVY = 0, oVX = 0;
+String id;
 
 void init() {
 	state = PREPARE;
 	name.active = true;
 	font = std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
+	backImage = std::make_unique<Texture>(U"assets/images/back.png");
+	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
 
 	previnput[U"W"] = false;
@@ -53,6 +60,8 @@ int update() {
 				json[U"Args"] = input;
 				ws.SendText(json.formatUTF8Minimum());
 				state = PLAYING;
+				name.active = false;
+				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
 			break;
 		}
@@ -64,11 +73,11 @@ int update() {
 
 				printf("received: %s\n", received.narrow().c_str());
 				if(json[U"method"] == U"joinAccepted") {
-					oy = json[U"args"][U"y"].get<int>() - center.y;
-					ox = json[U"args"][U"x"].get<int>() - center.x;
+					id = json[U"args"][U"id"].get<String>();
 				}
 				if(json[U"method"] == U"update") {
 					lastUpdate = json[U"args"];
+					lastUpdate[U"timestamp"] = frame;
 				}
 			}
 
@@ -129,6 +138,53 @@ void draw() {
 			break;
 		}
 		case PLAYING: {
+			// update origin
+			if(lastUpdate.hasElement(U"users")) {
+				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						oVY = lastUpdate[U"users"][i][U"vy"].get<float>();
+						oVX = lastUpdate[U"users"][i][U"vx"].get<float>();
+
+						if(KeyW.pressed() == KeyS.pressed()) {
+							lastUpdate[U"users"][i][U"vy"] = float(oVY - oVY * V_K);
+						} else if(KeyW.pressed()) {
+							lastUpdate[U"users"][i][U"vy"] =
+									float(oVY + (-oVY / V_MAX - 1) * V_MAX * V_K);
+						} else {
+							lastUpdate[U"users"][i][U"vy"] =
+									float(oVY + (1 - oVY / V_MAX) * V_MAX * V_K);
+						}
+						if(KeyA.pressed() == KeyD.pressed()) {
+							lastUpdate[U"users"][i][U"vx"] = float(oVX - oVX * V_K);
+						} else if(KeyA.pressed()) {
+							lastUpdate[U"users"][i][U"vx"] =
+									float(oVX + (-oVX / V_MAX - 1) * V_MAX * V_K);
+						} else {
+							lastUpdate[U"users"][i][U"vx"] =
+									float(oVX + (1 - oVX / V_MAX) * V_MAX * V_K);
+						}
+
+						oY = lastUpdate[U"users"][i][U"y"].get<float>() - center.y +
+								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
+						oX = lastUpdate[U"users"][i][U"x"].get<float>() - center.x +
+								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
+					}
+				}
+			}
+
+			// draw background
+			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
+					odd = MOD(int(-oY) / resolution.y, 2);
+			backImage->draw(cx - resolution.x, cy - resolution.y * odd);
+			backImage->draw(cx, cy - resolution.y * odd);
+			if(center.x < cx) {
+				cx -= center.x;
+			} else {
+				cx += center.x;
+			}
+			backImage->draw(cx - resolution.x, cy - resolution.y * !odd);
+			backImage->draw(cx, cy - resolution.y * !odd);
+
 			Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 
 			if(lastUpdate.hasElement(U"users")) {
@@ -136,16 +192,27 @@ void draw() {
 				auto bullets = lastUpdate[U"bullets"];
 				auto feeds = lastUpdate[U"feeds"];
 
-				printf("%s\n", users.format().narrow().c_str());
+				// draw users
+				for(const auto& user : users.arrayView()) {
+					int uX = -oX + user[U"x"].get<float>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 user[U"vx"].get<float>();
+					int uY = -oY + user[U"y"].get<float>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 user[U"vy"].get<float>();
+					String uName = user[U"name"].get<String>();
+					String uId = user[U"id"].get<String>();
 
-				for(const auto& e : users.arrayView()) {
-					printf("%s\n", e.format().narrow().c_str());
+					// draw ball
+					// tmp
+					Circle(uX - oX, uY - oY, 5).draw(textColor1);
+
+					// draw name
+					(*font)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
 				}
 				for(const auto& e : bullets.arrayView()) {
-					printf("%s\n", e.format().narrow().c_str());
 				}
 				for(const auto& e : feeds.arrayView()) {
-					printf("%s\n", e.format().narrow().c_str());
 				}
 			}
 

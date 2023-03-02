@@ -16,6 +16,9 @@
 
 #define SEND_INPUT_PER 6
 
+#define V_MAX 4
+#define V_K 0.2
+
 #define FONT_PATH U"assets/fonts/JF-Dot-k12x10.ttf"
 #define FONT_SIZE_SMALL 12
 #define FONT_SIZE_MEDIUM 20
