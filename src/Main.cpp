@@ -1,82 +1,79 @@
+// #include <Siv3D.hpp>
+// #include "scenes/Game.hpp"
+// #include "scenes/Title.hpp"
+
+enum MainState {
+	TITLE,
+	GAME,
+
+	MainState_NUM
+};
+
 #include <Siv3D.hpp>
-#include "WebSocket.hpp"
+#include "Global.hpp"
+#include "lib/WebSocket.hpp"
+#include "scenes/Game.hpp"
+#include "scenes/Title.hpp"
+
+EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
+EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
-	// Set background color to sky blue
-	Scene::SetBackground(ColorF{0.8, 0.9, 1.0});
+	Scene::SetTextureFilter(TextureFilter::Nearest);
+	// Scene::SetResizeMode(ResizeMode::Keep);
+	Scene::Resize(resolution * scaling);
+	Window::Resize(resolution * scaling);
 
-	WebSocket ws("ws://snowball-server.tqk.trap.show/api/ws");
+	Scene::SetBackground(backColor);
 
-	{
-		JSON json, args;
-		args[U"message"] = U"Hello World!";
-		json[U"Method"] = U"message";
-		json[U"Args"] = args;
-		ws.SendText(json.formatUTF8Minimum());
-	}
+	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
+	RenderTexture renderTexture(resolution);
 
-	// Create a new font
-	const Font font{60};
+	MainState state = TITLE;	// TITLE;
+	Title::init();
 
-	// Create a new emoji font
-	const Font emojiFont{60, Typeface::ColorEmoji};
-
-	// Set emojiFont as a fallback
-	font.addFallback(emojiFont);
-
-	// Create a texture from an image file
-	const Texture texture{U"example/windmill.png"};
-
-	// Create a texture from an emoji
-	const Texture emoji{U"🐈"_emoji};
-
-	// Coordinates of the emoji
-	Vec2 emojiPos{300, 150};
-
-	// Print a text
-	Print << U"Push [A] key";
-
+	Stopwatch calcTime(StartImmediately::Yes);
 	while(System::Update()) {
-		while(ws.hasReceivedText()) {
-			// JSON json = JSON::Parse(
-			// 		Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer()));
-			Print << Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
+		++frame;
+		calcTime.restart();
+		renderTexture.clear(backColor);
+		{
+			const ScopedRenderTarget2D renderTarget(renderTexture);
+
+			switch(state) {
+				case TITLE:
+					if(KeyEnter.down()) {
+						state = GAME;
+					}
+
+					if(Title::update() == 1) {
+						state = GAME;
+						Title::end();
+						Game::init();
+					}
+					Title::draw();
+					break;
+
+				case GAME:
+					if(Game::update() == 1) {
+						state = TITLE;
+						Title::init();
+					}
+					Game::draw();
+					break;
+				default:
+
+					// state = TITLE;
+					break;
+			}
 		}
 
-		// Draw a texture
-		texture.draw(200, 200);
+		renderTexture.scaled(scaling).draw();
 
-		// Put a text in the middle of the screen
-		font(U"Hello, Siv3D!🚀").drawAt(Scene::Center(), Palette::Black);
-
-		// Draw a texture with animated size
-		emoji.resized(100 + Periodic::Sine0_1(1s) * 20).drawAt(emojiPos);
-
-		// Draw a red transparent circle that follows the mouse cursor
-		Circle{Cursor::Pos(), 40}.draw(ColorF{1, 0, 0, 0.5});
-
-		// When [A] key is down
-		if(KeyA.down()) {
-			// Print a randomly selected text
-			Print << Sample({U"Hello!", U"こんにちは", U"你好", U"안녕하세요?"});
-		}
-
-		// When [Button] is pushed
-		if(SimpleGUI::Button(U"Button", Vec2{640, 40})) {
-			// Move the coordinates to a random position in the screen
-			emojiPos = RandomVec2(Scene::Rect());
-		}
-
-		if(KeyC.down()) {
-			JSON json;
-			json[U"cursor"] = Cursor::Pos();
-			ws.SendText(json.formatUTF8Minimum());
-		}
-
-		if(KeyA.down()) {
-			JSON json;
-			json[U"msg"] = U"Key A!";
-			ws.SendText(json.formatUTF8Minimum());
+		double rest = 1. / 60 - calcTime.sF();
+		if(rest > 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(int(rest * 1000)));
+			// emscripten_sleep(rest * 1000);
 		}
 	}
 }

@@ -1,6 +1,10 @@
 name: Deploy GitHub
 
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - dev
 
 jobs:
   build:

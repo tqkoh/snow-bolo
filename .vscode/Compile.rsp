@@ -4,4 +4,6 @@
 -D_XM_NO_INTRINSICS_
 -Isrc
 -IOpenSiv3D/include
+-IOpenSiv3D/include/Siv3D
+-IOpenSiv3D/include/Siv3D/ThirdParty
 -IOpenSiv3D/include/ThirdParty
