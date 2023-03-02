@@ -50,6 +50,7 @@
 -s MODULARIZE=1
 --preload-file resources/engine/font/min@/resources/engine/font/min
 --preload-file resources/engine/shader@/resources/engine/shader
+--preload-file resources/engine/texture@/resources/engine/texture
 --preload-file assets@/assets
 --shell-file OpenSiv3D/Templates/Embeddable/web-player.html
 --pre-js OpenSiv3D/lib/Siv3D/Siv3D.pre.js
