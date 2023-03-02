@@ -10,6 +10,7 @@ enum MainState {
 };
 
 #include <Siv3D.hpp>
+#include "Global.hpp"
 #include "lib/WebSocket.hpp"
 #include "scenes/Game.hpp"
 #include "scenes/Title.hpp"
@@ -18,9 +19,9 @@ EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
-	Scene::SetResizeMode(ResizeMode::Keep);
-	Scene::Resize(resolution * scaling);
 	Scene::SetTextureFilter(TextureFilter::Nearest);
+	// Scene::SetResizeMode(ResizeMode::Keep);
+	// Scene::Resize(resolution * scaling);
 	Window::Resize(resolution * scaling);
 
 	Scene::SetBackground(backColor);
@@ -33,6 +34,7 @@ void Main() {
 
 	Stopwatch calcTime(StartImmediately::Yes);
 	while(System::Update()) {
+		++frame;
 		calcTime.restart();
 		renderTexture.clear(backColor);
 		{

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Siv3D.hpp>
 #include "../Const.hpp"
+#include "../Global.hpp"
 #include "lib/WebSocket.hpp"
 
 enum GameState {
@@ -24,6 +24,10 @@ JSON previnput;
 
 std::unique_ptr<Texture> prepareImage;
 
+JSON lastUpdate;
+
+int oy = 0, ox = 0;
+
 void init() {
 	state = PREPARE;
 	name.active = true;
@@ -39,7 +43,7 @@ void init() {
 }
 int update() {
 	switch(state) {
-		case PREPARE:
+		case PREPARE: {
 			name.active = true;
 
 			if(KeyEnter.down()) {
@@ -51,11 +55,23 @@ int update() {
 				state = PLAYING;
 			}
 			break;
-		case PLAYING:
+		}
+		case PLAYING: {
+			String received;
 			while(ws.hasReceivedText()) {
-				auto received = Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
+				received = Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
 				JSON json = JSON::Parse(received);
+
+				printf("received: %s\n", received.narrow().c_str());
+				if(json[U"method"] == U"joinAccepted") {
+					oy = json[U"args"][U"y"].get<int>() - center.y;
+					ox = json[U"args"][U"x"].get<int>() - center.x;
+				}
+				if(json[U"method"] == U"update") {
+					lastUpdate = json[U"args"];
+				}
 			}
+
 			// send input
 			{
 				JSON json, input;
@@ -73,7 +89,8 @@ int update() {
 				json[U"Args"] = input;
 
 				// look at the md #2
-				if(MouseL.pressed() || MouseR.pressed() ||
+				if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
+					 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
 					 KeyW.pressed() != previnput[U"W"].get<bool>() ||
 					 KeyA.pressed() != previnput[U"A"].get<bool>() ||
 					 KeyS.pressed() != previnput[U"S"].get<bool>() ||
@@ -83,49 +100,63 @@ int update() {
 					ws.SendText(json.formatUTF8Minimum());
 					previnput = input;
 
-					std::cout << std::time(nullptr) << std::endl;
+					printf("time: %lld", std::time(nullptr));
 				}
 			}
 			break;
-		case DEAD:
+		}
+		case DEAD: {
 			break;
-		default:
+		}
+
+		default: {
 			state = PREPARE;
 			break;
+		}
 	}
 	if(KeyN.down()) {	 // tmp
 		return 1;
-	}
-
-	if(KeyC.down()) {
-		JSON json;
-		json[U"cursor"] = Cursor::Pos();
-		ws.SendText(json.formatUTF8Minimum());
-	}
-
-	if(KeyA.down()) {
-		JSON json;
-		json[U"message"] = U"Key A!";
-		ws.SendText(json.formatUTF8Minimum());
 	}
 	return 0;
 }
 void draw() {
 	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11, Palette::Green);
 	switch(state) {
-		case PREPARE:
+		case PREPARE: {
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
 			prepareImage->draw(0, 0);
 			(*font)(name.text).drawAt(Vec2(300, center.y), textColor1);
 			break;
-		case PLAYING:
+		}
+		case PLAYING: {
 			Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
-			break;
 
-		case DEAD:
+			if(lastUpdate.hasElement(U"users")) {
+				auto users = lastUpdate[U"users"];
+				auto bullets = lastUpdate[U"bullets"];
+				auto feeds = lastUpdate[U"feeds"];
+
+				printf("%s\n", users.format().narrow().c_str());
+
+				for(const auto& e : users.arrayView()) {
+					printf("%s\n", e.format().narrow().c_str());
+				}
+				for(const auto& e : bullets.arrayView()) {
+					printf("%s\n", e.format().narrow().c_str());
+				}
+				for(const auto& e : feeds.arrayView()) {
+					printf("%s\n", e.format().narrow().c_str());
+				}
+			}
+
 			break;
-		default:
+		}
+		case DEAD: {
 			break;
+		}
+		default: {
+			break;
+		}
 	}
 }
 

@@ -52,8 +52,8 @@ class WebSocket {
 																	void* userData) {
 		WebSocket* socket = (WebSocket*)userData;
 
-		Console << U"WebSocket Message numBytes=" << e->numBytes;
-		Console << U"Text:" << Unicode::FromUTF8(std::string((char*)e->data));
+		// Console << U"WebSocket Message numBytes=" << e->numBytes;
+		// Console << U"Text:" << Unicode::FromUTF8(std::string((char*)e->data));
 
 		socket->m_bufferRecv.emplace_back(std::string((char*)e->data));
 
