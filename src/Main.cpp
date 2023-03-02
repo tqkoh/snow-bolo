@@ -18,6 +18,8 @@ EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
+	Scene::SetResizeMode(ResizeMode::Keep);
+	Scene::Resize(resolution * scaling);
 	Scene::SetTextureFilter(TextureFilter::Nearest);
 	Window::Resize(resolution * scaling);
 
@@ -68,7 +70,9 @@ void Main() {
 
 		double rest = 1. / 60 - calcTime.sF();
 		if(rest > 0) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(int(rest * 1000)));
+			// std::this_thread::sleep_for(std::chrono::milliseconds(int(rest *
+			// 1000)));
+			emscripten_sleep(rest * 1000);
 		}
 	}
 }
