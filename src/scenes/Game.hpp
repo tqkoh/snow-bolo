@@ -71,7 +71,7 @@ int update() {
 				received = Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
 				JSON json = JSON::Parse(received);
 
-				printf("received: %s\n", received.narrow().c_str());
+				// printf("received: %s\n", received.narrow().c_str());
 				if(json[U"method"] == U"joinAccepted") {
 					id = json[U"args"][U"id"].get<String>();
 				}
@@ -194,10 +194,11 @@ void draw() {
 
 				// draw users
 				for(const auto& user : users.arrayView()) {
-					int uX = -oX + user[U"x"].get<float>() +
+					int uX = user[U"x"].get<float>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
 											 user[U"vx"].get<float>();
-					int uY = -oY + user[U"y"].get<float>() +
+
+					int uY = user[U"y"].get<float>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
 											 user[U"vy"].get<float>();
 					String uName = user[U"name"].get<String>();
