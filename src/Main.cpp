@@ -26,6 +26,8 @@ void Main() {
 
 	Scene::SetBackground(backColor);
 
+	Profiler::EnableAssetCreationWarning(false);
+
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 

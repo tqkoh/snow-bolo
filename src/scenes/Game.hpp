@@ -21,12 +21,14 @@ GameState state = PREPARE;
 TextEditState name;
 Point center(resolution / 2);
 
-std::unique_ptr<Font> font;
+std::unique_ptr<Font> fontSmall;
+std::unique_ptr<Font> fontMedium;
 JSON previnput;
 
-std::unique_ptr<Texture> backImage;
 std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
+std::unique_ptr<Image> backImage;
+std::unique_ptr<Image> backAndBallImage;
 
 JSON lastUpdate;
 
@@ -36,10 +38,14 @@ String id;
 void init() {
 	state = PREPARE;
 	name.active = true;
-	font = std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
-	backImage = std::make_unique<Texture>(U"assets/images/back.png");
+	fontSmall =
+			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
+	fontMedium =
+			std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
 	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
+	backImage = std::make_unique<Image>(U"assets/images/back.png");
+	backAndBallImage = std::make_unique<Image>(MAP_WIDTH, MAP_HEIGHT);
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -134,7 +140,7 @@ void draw() {
 		case PREPARE: {
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
 			prepareImage->draw(0, 0);
-			(*font)(name.text).drawAt(Vec2(300, center.y), textColor1);
+			(*fontMedium)(name.text).drawAt(Vec2(300, center.y), textColor1);
 			break;
 		}
 		case PLAYING: {
@@ -175,17 +181,21 @@ void draw() {
 			// draw background
 			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
 					odd = MOD(int(-oY) / resolution.y, 2);
-			backImage->draw(cx - resolution.x, cy - resolution.y * odd);
-			backImage->draw(cx, cy - resolution.y * odd);
+
+			ballImage->draw(cx - resolution.x, cy - resolution.y * odd);
+			ballImage->draw(cx, cy - resolution.y * odd);
 			if(center.x < cx) {
 				cx -= center.x;
 			} else {
 				cx += center.x;
 			}
-			backImage->draw(cx - resolution.x, cy - resolution.y * !odd);
-			backImage->draw(cx, cy - resolution.y * !odd);
+			ballImage->draw(cx - resolution.x, cy - resolution.y * !odd);
+			ballImage->draw(cx, cy - resolution.y * !odd);
 
-			Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
+			// backImage->draw(-oX, -oY);
+			backImage->overwrite(*backAndBallImage, 0, 0);
+
+			// Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 
 			if(lastUpdate.hasElement(U"users")) {
 				auto users = lastUpdate[U"users"];
@@ -193,6 +203,7 @@ void draw() {
 				auto feeds = lastUpdate[U"feeds"];
 
 				// draw users
+
 				for(const auto& user : users.arrayView()) {
 					int uX = user[U"x"].get<float>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
@@ -203,14 +214,21 @@ void draw() {
 											 user[U"vy"].get<float>();
 					String uName = user[U"name"].get<String>();
 					String uId = user[U"id"].get<String>();
+					float uMass = user[U"mass"].get<float>();
 
 					// draw ball
-					// tmp
-					Circle(uX - oX, uY - oY, 5).draw(textColor1);
+					int radius = std::powf(uMass, 1. / 3);
+					Circle(uX, uY, 41)
+							.overwrite(*backAndBallImage, textColor1, Antialiased::No);
+					Circle(uX, uY, 40)
+							.overwrite(*backAndBallImage, ColorF(0, 0, 0, 0),
+												 Antialiased::No);
 
 					// draw name
-					(*font)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
+					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
 				}
+				Texture(*backAndBallImage).draw(-oX, -oY);
+
 				for(const auto& e : bullets.arrayView()) {
 				}
 				for(const auto& e : feeds.arrayView()) {

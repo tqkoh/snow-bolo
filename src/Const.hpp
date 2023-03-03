@@ -20,9 +20,12 @@
 #define V_K 0.2
 
 #define FONT_PATH U"assets/fonts/JF-Dot-k12x10.ttf"
-#define FONT_SIZE_SMALL 12
+#define FONT_SIZE_SMALL 10
 #define FONT_SIZE_MEDIUM 20
-#define FONT_SIZE_LARGE 36
+#define FONT_SIZE_LARGE 30
+
+#define MAP_HEIGHT 1728
+#define MAP_WIDTH 1728
 
 const Size resolution(384, 216);
 const int scaling = 8;
