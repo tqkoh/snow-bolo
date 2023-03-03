@@ -33,3 +33,4 @@ const int scaling = 8;
 const ColorF backColor(U"#f0fefd");
 const ColorF textColor1(U"#aaf0f3");
 const ColorF textColor2(U"#ffd671");
+const ColorF ballColor(U"#feffff");

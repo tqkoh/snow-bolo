@@ -25,10 +25,9 @@ std::unique_ptr<Font> fontSmall;
 std::unique_ptr<Font> fontMedium;
 JSON previnput;
 
+std::unique_ptr<Texture> backImage;
 std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
-std::unique_ptr<Image> backImage;
-std::unique_ptr<Image> backAndBallImage;
 
 JSON lastUpdate;
 
@@ -42,10 +41,9 @@ void init() {
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
 	fontMedium =
 			std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
+	backImage = std::make_unique<Texture>(U"assets/images/back.png");
 	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
-	backImage = std::make_unique<Image>(U"assets/images/back.png");
-	backAndBallImage = std::make_unique<Image>(MAP_WIDTH, MAP_HEIGHT);
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -115,7 +113,7 @@ int update() {
 					ws.SendText(json.formatUTF8Minimum());
 					previnput = input;
 
-					printf("time: %lld", std::time(nullptr));
+					// printf("time: %lld", std::time(nullptr));
 				}
 			}
 			break;
@@ -182,18 +180,18 @@ void draw() {
 			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
 					odd = MOD(int(-oY) / resolution.y, 2);
 
-			ballImage->draw(cx - resolution.x, cy - resolution.y * odd);
-			ballImage->draw(cx, cy - resolution.y * odd);
-			if(center.x < cx) {
-				cx -= center.x;
-			} else {
-				cx += center.x;
-			}
-			ballImage->draw(cx - resolution.x, cy - resolution.y * !odd);
-			ballImage->draw(cx, cy - resolution.y * !odd);
+			// ballImage->draw(cx - resolution.x, cy - resolution.y * odd);
+			// ballImage->draw(cx, cy - resolution.y * odd);
+			// if(center.x < cx) {
+			// 	cx -= center.x;
+			// } else {
+			// 	cx += center.x;
+			// }
+			// ballImage->draw(cx - resolution.x, cy - resolution.y * !odd);
+			// ballImage->draw(cx, cy - resolution.y * !odd);
 
-			// backImage->draw(-oX, -oY);
-			backImage->overwrite(*backAndBallImage, 0, 0);
+			backImage->draw(-oX, -oY);
+			// backImage->overwrite(*backAndBallImage, 0, 0);
 
 			// Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 
@@ -218,16 +216,12 @@ void draw() {
 
 					// draw ball
 					int radius = std::powf(uMass, 1. / 3);
-					Circle(uX, uY, 41)
-							.overwrite(*backAndBallImage, textColor1, Antialiased::No);
-					Circle(uX, uY, 40)
-							.overwrite(*backAndBallImage, ColorF(0, 0, 0, 0),
-												 Antialiased::No);
+					Circle(uX - oX, uY - oY, radius + 1).draw(textColor1);
+					Circle(uX - oX, uY - oY, radius).draw(ballColor);
 
 					// draw name
 					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
 				}
-				Texture(*backAndBallImage).draw(-oX, -oY);
 
 				for(const auto& e : bullets.arrayView()) {
 				}
