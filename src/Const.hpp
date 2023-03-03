@@ -5,7 +5,7 @@
 #define DEV 0
 
 #if DEV == 0
-#define API_URL "wss://tqk.trap.show/snowball-server/"
+#define API_URL "wss://tqk.trap.show/snowball-server/api/ws"
 #elif DEV == 1
 #define API_URL "ws://dev.snowball-server.tqk.trap.show/api/ws"
 #elif DEV == 2
