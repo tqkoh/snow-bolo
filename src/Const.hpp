@@ -16,8 +16,11 @@
 
 #define SEND_INPUT_PER 6
 
-#define V_MAX 4
+#define MAX_V 4
 #define V_K 0.2
+
+#define RADIUS_M 50
+#define RADIUS_V 0.0001
 
 #define FONT_PATH U"assets/fonts/JF-Dot-k12x10.ttf"
 #define FONT_SIZE_SMALL 10
@@ -34,7 +37,7 @@ const ColorF backColor(U"#f0fefd");
 const ColorF textColor1(U"#aaf0f3");
 const ColorF textColor2(U"#ffd671");
 const ColorF paintColor1(U"#d6f7f9");
-const ColorF paintColor2(U"#ffea5a");
+const ColorF paintColor2(U"#fef299");
 const ColorF ballColor(U"#feffff");
 
 #define GAME_KATASA_Y 175

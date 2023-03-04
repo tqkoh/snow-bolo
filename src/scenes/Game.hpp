@@ -29,6 +29,7 @@ std::unique_ptr<Texture> backImage;
 std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
 std::unique_ptr<Texture> katasaDekasaImage;
+std::unique_ptr<Texture> miniMapImage;
 
 JSON lastUpdate;
 JSON lastMyUpdate;
@@ -48,6 +49,7 @@ void init() {
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
 	katasaDekasaImage =
 			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
+	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -124,6 +126,18 @@ int update() {
 			// update my data
 			if(lastUpdate.hasElement(U"users")) {
 				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
+					double radius = std::pow(mass, 1. / 3.);
+
+					double r6 = std::sqrt(6);
+					if(mass > 2000. / 9. * r6) {
+						radius =
+								(-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
+										RADIUS_M +
+								10. / 3. * r6;
+					}
+					lastUpdate[U"users"][i][U"radius"] = radius;
+
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
 						lastMyUpdate = lastUpdate[U"users"][i];
 
@@ -134,19 +148,19 @@ int update() {
 							lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
 						} else if(KeyW.pressed()) {
 							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (-oVY / V_MAX - 1.) * V_MAX * V_K);
+									double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
 						} else {
 							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (1. - oVY / V_MAX) * V_MAX * V_K);
+									double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
 						}
 						if(KeyA.pressed() == KeyD.pressed()) {
 							lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
 						} else if(KeyA.pressed()) {
 							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (-oVX / V_MAX - 1.) * V_MAX * V_K);
+									double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
 						} else {
 							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (1. - oVX / V_MAX) * V_MAX * V_K);
+									double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
 						}
 
 						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
@@ -232,20 +246,25 @@ void draw() {
 					int uLeftClickLength = user[U"leftClickLength"].get<int>();
 
 					// draw ball
-					int radius = std::powf(uMass, 1. / 3);
+					int radius = user[U"radius"].get<double>();
 					Circle(uX - oX, uY - oY, radius)
 							.draw(ballColor)
 							.drawFrame(0, 1, textColor1);
 
 					// draw triangle looking at users cursor
 					if(uLeftClickLength) {
+						if(uId == id) {
+							uDy = Cursor::Pos().y / scaling - center.y;
+							uDx = Cursor::Pos().x / scaling - center.x;
+						}
+
 						radius += 5 + uLeftClickLength / 20;
 						double l = std::sqrt(uDx * uDx + uDy * uDy);
 						if(l != 0) {
-							double dx = uDx / l, dy = uDy / l;
+							double dy = uDy / l, dx = uDx / l;
 							if(!dx)
 								dx = nextafter(dx, DBL_MAX);
-							double x = uX - oX + dx * radius, y = uY - oY + dy * radius;
+							double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
 							Triangle(x, y, 5 + uLeftClickLength / 10,
 											 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
 									.draw(textColor2);
@@ -266,7 +285,8 @@ void draw() {
 				katasaDekasaImage->draw(0, resolution.y - 50);
 				const int strength = lastMyUpdate[U"strength"].get<int>();
 				const double mass = lastMyUpdate[U"mass"].get<double>();
-				const int dekasa_w = mass / 1000 + 1;
+				const double radius = lastMyUpdate[U"radius"].get<double>();
+				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 280;
 				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, strength,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor1)
@@ -279,6 +299,15 @@ void draw() {
 						.drawFrame(0, 1, textColor2);
 				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y,
 																		 textColor2);
+
+				miniMapImage->draw(resolution - Vec2(50, 50));
+				if(lastMyUpdate.hasElement(U"x")) {
+					Circle(resolution - Vec2(50, 50) +
+										 Vec2(lastMyUpdate[U"x"].get<double>() / 36,
+													lastMyUpdate[U"y"].get<double>() / 36),
+								 lastMyUpdate[U"radius"].get<double>() / 36 + 1)
+							.draw(textColor2);
+				}
 			}
 
 			break;
