@@ -28,8 +28,10 @@ JSON previnput;
 std::unique_ptr<Texture> backImage;
 std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
+std::unique_ptr<Texture> katasaDekasaImage;
 
 JSON lastUpdate;
+JSON lastMyUpdate;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
@@ -44,6 +46,8 @@ void init() {
 	backImage = std::make_unique<Texture>(U"assets/images/back.png");
 	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
+	katasaDekasaImage =
+			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -116,36 +120,13 @@ int update() {
 					// printf("time: %lld", std::time(nullptr));
 				}
 			}
-			break;
-		}
-		case DEAD: {
-			break;
-		}
 
-		default: {
-			state = PREPARE;
-			break;
-		}
-	}
-	if(KeyN.down()) {	 // tmp
-		return 1;
-	}
-	return 0;
-}
-void draw() {
-	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11, Palette::Green);
-	switch(state) {
-		case PREPARE: {
-			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
-			prepareImage->draw(0, 0);
-			(*fontMedium)(name.text).drawAt(Vec2(300, center.y), textColor1);
-			break;
-		}
-		case PLAYING: {
-			// update origin
+			// update my data
 			if(lastUpdate.hasElement(U"users")) {
 				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						lastMyUpdate = lastUpdate[U"users"][i];
+
 						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
 						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
 
@@ -176,6 +157,40 @@ void draw() {
 				}
 			}
 
+			break;
+		}
+		case DEAD: {
+			break;
+		}
+
+		default: {
+			state = PREPARE;
+			break;
+		}
+	}
+	if(KeyN.down()) {	 // tmp
+		return 1;
+	}
+	return 0;
+}
+void draw() {
+	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11, Palette::Green);
+	switch(state) {
+		case PREPARE: {
+			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
+			prepareImage->draw(0, 0);
+			(*fontMedium)(name.text).drawAt(Vec2(300, center.y), textColor1);
+
+			katasaDekasaImage->draw(0, resolution.y - 50);
+			Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, 35, GAME_KATASA_DEKASA_HEIGHT)
+					.draw(paintColor1)
+					.drawFrame(0, 1, textColor1);
+			Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, 17, GAME_KATASA_DEKASA_HEIGHT)
+					.draw(paintColor2)
+					.drawFrame(0, 1, textColor2);
+			break;
+		}
+		case PLAYING: {
 			// draw background
 			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
 					odd = MOD(int(-oY) / resolution.y, 2);
@@ -218,8 +233,9 @@ void draw() {
 
 					// draw ball
 					int radius = std::powf(uMass, 1. / 3);
-					Circle(uX - oX, uY - oY, radius + 1).draw(textColor1);
-					Circle(uX - oX, uY - oY, radius).draw(ballColor);
+					Circle(uX - oX, uY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, textColor1);
 
 					// draw triangle looking at users cursor
 					if(uLeftClickLength) {
@@ -244,6 +260,25 @@ void draw() {
 				}
 				for(const auto& e : feeds.arrayView()) {
 				}
+			}
+
+			if(lastMyUpdate.hasElement(U"strength")) {
+				katasaDekasaImage->draw(0, resolution.y - 50);
+				const int strength = lastMyUpdate[U"strength"].get<int>();
+				const double mass = lastMyUpdate[U"mass"].get<double>();
+				const int dekasa_w = mass / 1000 + 1;
+				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, strength,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(paintColor1)
+						.drawFrame(0, 1, textColor1);
+				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y,
+																		textColor1);
+				Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, dekasa_w,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(paintColor2)
+						.drawFrame(0, 1, textColor2);
+				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y,
+																		 textColor2);
 			}
 
 			break;
