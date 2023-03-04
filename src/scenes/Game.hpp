@@ -37,6 +37,16 @@ JSON lastMyUpdate;
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
 
+double radiusFromMass(double mass) {
+	double r6 = std::sqrt(6);
+	if(mass > 2000. / 9. * r6) {
+		return (-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
+							 RADIUS_M +
+					 10. / 3. * r6;
+	}
+	return std::pow(mass, 1. / 3.);
+}
+
 void init() {
 	state = PREPARE;
 	name.active = true;
@@ -127,16 +137,7 @@ int update() {
 			if(lastUpdate.hasElement(U"users")) {
 				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
 					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
-					double radius = std::pow(mass, 1. / 3.);
-
-					double r6 = std::sqrt(6);
-					if(mass > 2000. / 9. * r6) {
-						radius =
-								(-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
-										RADIUS_M +
-								10. / 3. * r6;
-					}
-					lastUpdate[U"users"][i][U"radius"] = radius;
+					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
 
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
 						lastMyUpdate = lastUpdate[U"users"][i];
@@ -272,12 +273,34 @@ void draw() {
 					}
 
 					// draw name
-					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
+					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
 				}
 
 				for(const auto& e : bullets.arrayView()) {
+					int bY = e[U"y"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vy"].get<double>();
+					int bX = e[U"x"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vx"].get<double>();
+					int radius = radiusFromMass(e[U"mass"].get<double>());
+
+					Circle(bX - oX, bY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, textColor2);
 				}
 				for(const auto& e : feeds.arrayView()) {
+					int fY = e[U"y"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vy"].get<double>();
+					int fX = e[U"x"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vx"].get<double>();
+					int radius = radiusFromMass(e[U"mass"].get<double>());
+
+					Circle(fX - oX, fY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, paintColor1);
 				}
 			}
 
@@ -306,7 +329,7 @@ void draw() {
 										 Vec2(lastMyUpdate[U"x"].get<double>() / 36,
 													lastMyUpdate[U"y"].get<double>() / 36),
 								 lastMyUpdate[U"radius"].get<double>() / 36 + 1)
-							.draw(textColor2);
+							.draw(textColor1);
 				}
 			}
 
