@@ -30,6 +30,7 @@ std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
 std::unique_ptr<Texture> katasaDekasaImage;
 std::unique_ptr<Texture> miniMapImage;
+std::unique_ptr<Audio> themeAudio;
 
 JSON lastUpdate;
 JSON lastMyUpdate;
@@ -61,12 +62,17 @@ void init() {
 			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
 	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
 
+	themeAudio = std::make_unique<Audio>(
+			U"assets/sounds/theme.mp3", Arg::loopBegin = 28s, Arg::loopEnd = 52s);
+
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
 	previnput[U"S"] = false;
 	previnput[U"D"] = false;
 	previnput[U"left"] = MouseL.pressed();
 	previnput[U"right"] = MouseR.pressed();
+
+	themeAudio->play();
 }
 int update() {
 	switch(state) {
