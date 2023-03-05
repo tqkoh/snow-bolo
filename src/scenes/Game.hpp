@@ -48,9 +48,7 @@ double radiusFromMass(double mass) {
 	return std::pow(mass, 1. / 3.);
 }
 
-void init() {
-	state = PREPARE;
-	name.active = true;
+void load() {
 	fontSmall =
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
 	fontMedium =
@@ -62,8 +60,14 @@ void init() {
 			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
 	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
 
-	themeAudio = std::make_unique<Audio>(
-			U"assets/sounds/theme.mp3", Arg::loopBegin = 28s, Arg::loopEnd = 52s);
+	themeAudio =
+			std::make_unique<Audio>(U"assets/sounds/snowball_theme.mp3",
+															Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
+}
+
+void init() {
+	state = PREPARE;
+	name.active = true;
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -89,6 +93,7 @@ int update() {
 				name.active = false;
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
+
 			break;
 		}
 		case PLAYING: {
