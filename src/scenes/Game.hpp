@@ -28,15 +28,27 @@ JSON previnput;
 std::unique_ptr<Texture> backImage;
 std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
+std::unique_ptr<Texture> katasaDekasaImage;
+std::unique_ptr<Texture> miniMapImage;
+std::unique_ptr<Audio> themeAudio;
 
 JSON lastUpdate;
+JSON lastMyUpdate;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
 
-void init() {
-	state = PREPARE;
-	name.active = true;
+double radiusFromMass(double mass) {
+	double r6 = std::sqrt(6);
+	if(mass > 2000. / 9. * r6) {
+		return (-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
+							 RADIUS_M +
+					 10. / 3. * r6;
+	}
+	return std::pow(mass, 1. / 3.);
+}
+
+void load() {
 	fontSmall =
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
 	fontMedium =
@@ -44,6 +56,18 @@ void init() {
 	backImage = std::make_unique<Texture>(U"assets/images/back.png");
 	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
+	katasaDekasaImage =
+			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
+	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
+
+	themeAudio =
+			std::make_unique<Audio>(U"assets/sounds/snowball_theme.mp3",
+															Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
+}
+
+void init() {
+	state = PREPARE;
+	name.active = true;
 
 	previnput[U"W"] = false;
 	previnput[U"A"] = false;
@@ -51,6 +75,8 @@ void init() {
 	previnput[U"D"] = false;
 	previnput[U"left"] = MouseL.pressed();
 	previnput[U"right"] = MouseR.pressed();
+
+	themeAudio->play();
 }
 int update() {
 	switch(state) {
@@ -67,6 +93,7 @@ int update() {
 				name.active = false;
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
+
 			break;
 		}
 		case PLAYING: {
@@ -116,6 +143,46 @@ int update() {
 					// printf("time: %lld", std::time(nullptr));
 				}
 			}
+
+			// update my data
+			if(lastUpdate.hasElement(U"users")) {
+				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
+					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
+
+					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						lastMyUpdate = lastUpdate[U"users"][i];
+
+						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
+						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
+
+						if(KeyW.pressed() == KeyS.pressed()) {
+							lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
+						} else if(KeyW.pressed()) {
+							lastUpdate[U"users"][i][U"vy"] =
+									double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
+						} else {
+							lastUpdate[U"users"][i][U"vy"] =
+									double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
+						}
+						if(KeyA.pressed() == KeyD.pressed()) {
+							lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
+						} else if(KeyA.pressed()) {
+							lastUpdate[U"users"][i][U"vx"] =
+									double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
+						} else {
+							lastUpdate[U"users"][i][U"vx"] =
+									double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
+						}
+
+						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
+								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
+						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
+								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
+					}
+				}
+			}
+
 			break;
 		}
 		case DEAD: {
@@ -139,43 +206,17 @@ void draw() {
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
 			prepareImage->draw(0, 0);
 			(*fontMedium)(name.text).drawAt(Vec2(300, center.y), textColor1);
+
+			katasaDekasaImage->draw(0, resolution.y - 50);
+			Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, 35, GAME_KATASA_DEKASA_HEIGHT)
+					.draw(paintColor1)
+					.drawFrame(0, 1, textColor1);
+			Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, 17, GAME_KATASA_DEKASA_HEIGHT)
+					.draw(paintColor2)
+					.drawFrame(0, 1, textColor2);
 			break;
 		}
 		case PLAYING: {
-			// update origin
-			if(lastUpdate.hasElement(U"users")) {
-				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
-					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
-						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
-						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
-
-						if(KeyW.pressed() == KeyS.pressed()) {
-							lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
-						} else if(KeyW.pressed()) {
-							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (-oVY / V_MAX - 1.) * V_MAX * V_K);
-						} else {
-							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (1. - oVY / V_MAX) * V_MAX * V_K);
-						}
-						if(KeyA.pressed() == KeyD.pressed()) {
-							lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
-						} else if(KeyA.pressed()) {
-							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (-oVX / V_MAX - 1.) * V_MAX * V_K);
-						} else {
-							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (1. - oVX / V_MAX) * V_MAX * V_K);
-						}
-
-						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
-								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
-						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
-								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
-					}
-				}
-			}
-
 			// draw background
 			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
 					odd = MOD(int(-oY) / resolution.y, 2);
@@ -217,19 +258,25 @@ void draw() {
 					int uLeftClickLength = user[U"leftClickLength"].get<int>();
 
 					// draw ball
-					int radius = std::powf(uMass, 1. / 3);
-					Circle(uX - oX, uY - oY, radius + 1).draw(textColor1);
-					Circle(uX - oX, uY - oY, radius).draw(ballColor);
+					int radius = user[U"radius"].get<double>();
+					Circle(uX - oX, uY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, textColor1);
 
 					// draw triangle looking at users cursor
 					if(uLeftClickLength) {
+						if(uId == id) {
+							uDy = Cursor::Pos().y / scaling - center.y;
+							uDx = Cursor::Pos().x / scaling - center.x;
+						}
+
 						radius += 5 + uLeftClickLength / 20;
 						double l = std::sqrt(uDx * uDx + uDy * uDy);
 						if(l != 0) {
-							double dx = uDx / l, dy = uDy / l;
+							double dy = uDy / l, dx = uDx / l;
 							if(!dx)
 								dx = nextafter(dx, DBL_MAX);
-							double x = uX - oX + dx * radius, y = uY - oY + dy * radius;
+							double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
 							Triangle(x, y, 5 + uLeftClickLength / 10,
 											 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
 									.draw(textColor2);
@@ -237,12 +284,63 @@ void draw() {
 					}
 
 					// draw name
-					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY - 5), textColor2);
+					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
 				}
 
 				for(const auto& e : bullets.arrayView()) {
+					int bY = e[U"y"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vy"].get<double>();
+					int bX = e[U"x"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vx"].get<double>();
+					int radius = radiusFromMass(e[U"mass"].get<double>());
+
+					Circle(bX - oX, bY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, textColor2);
 				}
 				for(const auto& e : feeds.arrayView()) {
+					int fY = e[U"y"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vy"].get<double>();
+					int fX = e[U"x"].get<double>() +
+									 (frame - lastUpdate[U"timestamp"].get<int>()) *
+											 e[U"vx"].get<double>();
+					int radius = radiusFromMass(e[U"mass"].get<double>());
+
+					Circle(fX - oX, fY - oY, radius)
+							.draw(ballColor)
+							.drawFrame(0, 1, paintColor1);
+				}
+			}
+
+			if(lastMyUpdate.hasElement(U"strength")) {
+				katasaDekasaImage->draw(0, resolution.y - 50);
+				const int strength = lastMyUpdate[U"strength"].get<int>();
+				const double mass = lastMyUpdate[U"mass"].get<double>();
+				const double radius = lastMyUpdate[U"radius"].get<double>();
+				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 280;
+				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, strength,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(paintColor1)
+						.drawFrame(0, 1, textColor1);
+				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y,
+																		textColor1);
+				Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, dekasa_w,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(paintColor2)
+						.drawFrame(0, 1, textColor2);
+				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y,
+																		 textColor2);
+
+				miniMapImage->draw(resolution - Vec2(50, 50));
+				if(lastMyUpdate.hasElement(U"x")) {
+					Circle(resolution - Vec2(50, 50) +
+										 Vec2(lastMyUpdate[U"x"].get<double>() / 36,
+													lastMyUpdate[U"y"].get<double>() / 36),
+								 lastMyUpdate[U"radius"].get<double>() / 36 + 1)
+							.draw(textColor1);
 				}
 			}
 

@@ -31,6 +31,7 @@ void Main() {
 
 	MainState state = TITLE;	// TITLE;
 	Title::init();
+	Game::load();
 
 	Stopwatch calcTime(StartImmediately::Yes);
 	while(System::Update()) {
