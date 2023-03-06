@@ -2,7 +2,7 @@
 
 #include <Siv3D.hpp>
 
-#define DEV 0
+#define DEV 2
 
 #if DEV == 0
 #define API_URL "wss://tqk.trap.show/snowball-server/api/ws"
@@ -37,8 +37,9 @@ const ColorF backColor(U"#f0fefd");
 const ColorF textColor1(U"#aaf0f3");
 const ColorF textColor2(U"#ffd671");
 const ColorF paintColor1(U"#d6f7f9");
-const ColorF paintColor2(U"#fef299");
+const ColorF paintColor2(U"#fef8ca");
 const ColorF ballColor(U"#feffff");
+const ColorF shadowColor(0, .15);
 
 #define GAME_KATASA_Y 175
 #define GAME_KATASA_DEKASA_X 60

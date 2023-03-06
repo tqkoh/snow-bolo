@@ -16,7 +16,8 @@ enum GameState {
 
 namespace Game {
 
-WebSocket ws(API_URL);
+// WebSocket ws(API_URL);
+std::unique_ptr<WebSocket> ws;
 GameState state = PREPARE;
 TextEditState name;
 Point center(resolution / 2);
@@ -66,6 +67,8 @@ void load() {
 }
 
 void init() {
+	ws = std::make_unique<WebSocket>(API_URL);
+
 	state = PREPARE;
 	name.active = true;
 
@@ -79,6 +82,11 @@ void init() {
 	themeAudio->play();
 }
 int update() {
+	if(ws->disconnected) {
+		Console << U"disconnected from server";
+		return 1;
+	}
+
 	switch(state) {
 		case PREPARE: {
 			name.active = true;
@@ -88,7 +96,7 @@ int update() {
 				input[U"name"] = name.text;
 				json[U"Method"] = U"join";
 				json[U"Args"] = input;
-				ws.SendText(json.formatUTF8Minimum());
+				ws->SendText(json.formatUTF8Minimum());
 				state = PLAYING;
 				name.active = false;
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
@@ -98,17 +106,20 @@ int update() {
 		}
 		case PLAYING: {
 			String received;
-			while(ws.hasReceivedText()) {
-				received = Unicode::FromUTF8(ws.getReceivedTextAndPopFromBuffer());
-				JSON json = JSON::Parse(received);
-
-				// printf("received: %s\n", received.narrow().c_str());
-				if(json[U"method"] == U"joinAccepted") {
-					id = json[U"args"][U"id"].get<String>();
-				}
-				if(json[U"method"] == U"update") {
-					lastUpdate = json[U"args"];
-					lastUpdate[U"timestamp"] = frame;
+			while(ws->hasReceivedText()) {
+				received = Unicode::FromUTF8(ws->getReceivedTextAndPopFromBuffer());
+				try {
+					JSON json = JSON::Parse(received);
+					// printf("received: %s\n", received.narrow().c_str());
+					if(json[U"method"] == U"joinAccepted") {
+						id = json[U"args"][U"id"].get<String>();
+					}
+					if(json[U"method"] == U"update") {
+						lastUpdate = json[U"args"];
+						lastUpdate[U"timestamp"] = frame;
+					}
+				} catch(...) {
+					printf("parse failed: %s\n", received.narrow().c_str());
 				}
 			}
 
@@ -137,7 +148,7 @@ int update() {
 					 KeyD.pressed() != previnput[U"D"].get<bool>() ||
 					 MouseL.pressed() != previnput[U"left"].get<bool>() ||
 					 MouseR.pressed() != previnput[U"right"].get<bool>()) {
-					ws.SendText(json.formatUTF8Minimum());
+					ws->SendText(json.formatUTF8Minimum());
 					previnput = input;
 
 					// printf("time: %lld", std::time(nullptr));
@@ -320,17 +331,21 @@ void draw() {
 				const int strength = lastMyUpdate[U"strength"].get<int>();
 				const double mass = lastMyUpdate[U"mass"].get<double>();
 				const double radius = lastMyUpdate[U"radius"].get<double>();
-				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 280;
+				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
 				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, strength,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor1)
 						.drawFrame(0, 1, textColor1);
+				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2 + 1, GAME_KATASA_Y,
+																		shadowColor);
 				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y,
 																		textColor1);
 				Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, dekasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor2)
 						.drawFrame(0, 1, textColor2);
+				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2 + 1,
+																		 GAME_DEKASA_Y, shadowColor);
 				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y,
 																		 textColor2);
 
