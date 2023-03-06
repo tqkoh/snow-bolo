@@ -19,6 +19,8 @@ EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
+	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
+
 	Scene::SetTextureFilter(TextureFilter::Nearest);
 	// Scene::SetResizeMode(ResizeMode::Keep);
 	Scene::Resize(resolution * scaling);
@@ -28,6 +30,8 @@ void Main() {
 
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
+
+	Window::SetTitle(U"snowball");
 
 	MainState state = TITLE;	// TITLE;
 	Title::init();

@@ -31,6 +31,7 @@ class WebSocket {
 		Console << U"WebSocket Close";
 
 		socket->m_hasConnection = false;
+		socket->disconnected = true;
 
 		return 0;
 	}
@@ -43,6 +44,7 @@ class WebSocket {
 		Console << U"WebSocket Error eventType=" << eventType;
 
 		socket->m_hasConnection = false;
+		socket->disconnected = true;
 
 		return 0;
 	}
@@ -87,6 +89,7 @@ class WebSocket {
 	std::vector<std::string> m_bufferRecv;
 
 public:
+	bool disconnected = false;
 	WebSocket(const char* url) {
 		EmscriptenWebSocketCreateAttributes attributes;
 		emscripten_websocket_init_create_attributes(&attributes);
@@ -99,6 +102,8 @@ public:
 		emscripten_websocket_set_onmessage_callback(m_socket, this,
 																								WebSocketMessage);
 	}
+
+	bool hasConnection() const { return m_hasConnection; }
 
 	bool hasReceivedText() const { return !m_bufferRecv.empty(); }
 
