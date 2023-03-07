@@ -47,3 +47,5 @@ const ColorF shadowColor(0, .15);
 #define GAME_KATASA_DEKASA_X 60
 #define GAME_DEKASA_Y 198
 #define GAME_KATASA_DEKASA_HEIGHT 10
+
+#define ANIMATION_DAMAGE_LENGTH 30

@@ -39,10 +39,37 @@ JSON lastMyUpdate;
 JSON defaultUpdate;
 
 int damage = 0;
-int damageAnimation = 0;
+int damageBarAnimationFrame = 0;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
+
+class damageAnimation {
+public:
+	String id;
+	int y = 0, x = 0;
+	int damage = 0;
+	mutable int frame = 0;
+	damageAnimation(int y, int x, int damage, int frame, String id)
+			: y(y), x(x), damage(damage), frame(frame), id(id) {}
+	int drawDamage(int oY, int oX) const {
+		--frame;
+		(*fontSmall)(damage).drawAt(x - oX, y - oY + 5, damageColor);
+		return frame <= 0;
+	}
+};
+const bool operator<(const damageAnimation& lhs, const damageAnimation& rhs) {
+	if(lhs.id == rhs.id) {
+		if(lhs.frame == rhs.frame) {
+			return &lhs < &rhs;
+		}
+		return lhs.frame < rhs.frame;
+	}
+
+	return lhs.id < rhs.id;
+}
+
+std::set<damageAnimation> damageAnimations;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -300,19 +327,26 @@ void draw() {
 
 				// draw users
 
-				for(const auto& user : users.arrayView()) {
+				auto uArray = users.arrayView();
+				for(int i = 0; i < users.size(); ++i) {
+					auto&& user = uArray[i];
 					int uY = user[U"y"].get<double>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
 											 user[U"vy"].get<double>();
 					int uX = user[U"x"].get<double>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
 											 user[U"vx"].get<double>();
+					if(user[U"id"].get<String>() == id) {
+						uY = oY + center.y;
+						uX = oX + center.x;
+					}
 					String uName = user[U"name"].get<String>();
 					String uId = user[U"id"].get<String>();
 					double uMass = user[U"mass"].get<double>();
 					int uDy = user[U"dy"].get<int>();
 					int uDx = user[U"dx"].get<int>();
 					int uLeftClickLength = user[U"leftClickLength"].get<int>();
+					int uDamage = user[U"damage"].get<int>();
 
 					// draw ball
 					int radius = user[U"radius"].get<double>();
@@ -352,8 +386,14 @@ void draw() {
 
 					// draw name
 					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
-				}
 
+					if(uDamage > 0 && uId != id) {
+						damageAnimations.insert(
+								damageAnimation(uY, uX, user[U"damage"].get<int>(),
+																ANIMATION_DAMAGE_LENGTH, uId));
+						user[U"damage"] = 0;
+					}
+				}
 				for(const auto& e : bullets.arrayView()) {
 					int bY = e[U"y"].get<double>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
@@ -380,6 +420,19 @@ void draw() {
 							.draw(ballColor)
 							.drawFrame(0, 1, paintColor1);
 				}
+
+				// draw damage
+				for(auto it = damageAnimations.begin(); it != damageAnimations.end();) {
+					auto next = it;
+					++next;
+					if(next != damageAnimations.end() && it->id == next->id) {
+						it = damageAnimations.erase(it);
+					} else if(it->drawDamage(oY, oX)) {
+						it = damageAnimations.erase(it);
+					} else {
+						++it;
+					}
+				}
 			}
 
 			if(lastUpdate.hasElement(U"mass") &&
@@ -394,17 +447,18 @@ void draw() {
 				const double radius = lastMyUpdate[U"radius"].get<double>();
 				const int lastDamage = lastMyUpdate[U"damage"].get<int>();
 				damage = lastDamage > 0 ? lastDamage : damage;
-				damageAnimation += lastDamage;
+				damageBarAnimationFrame += lastDamage;
 				const double katasa_w = strength * 270 / 100;
-				const double damage_w = abs(damageAnimation * 270 / 100);
+				const double damage_w = damageBarAnimationFrame * 270 / 100;
 				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
 
-				damageAnimation /= 1.5;
+				damageBarAnimationFrame /= 1.5;
 
 				Rect(GAME_KATASA_DEKASA_X + katasa_w, GAME_KATASA_Y, damage_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
-						.draw(damageAnimation > 0 ? damageColor : recoverColor)
-						.drawFrame(0, 1, damageAnimation > 0 ? damageColor : recoverColor);
+						.draw(damageBarAnimationFrame > 0 ? damageColor : recoverColor)
+						.drawFrame(
+								0, 1, damageBarAnimationFrame > 0 ? damageColor : recoverColor);
 				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, katasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor1)
