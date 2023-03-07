@@ -39,6 +39,8 @@ const ColorF textColor2(U"#ffd671");
 const ColorF paintColor1(U"#d6f7f9");
 const ColorF paintColor2(U"#fef8ca");
 const ColorF ballColor(U"#feffff");
+const ColorF damageColor(ColorF(U"#ff2222"), 0.3);
+const ColorF recoverColor(ColorF(U"#22ff22"), 0.3);
 const ColorF shadowColor(0, .15);
 
 #define GAME_KATASA_Y 175
