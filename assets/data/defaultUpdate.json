@@ -1,0 +1,8 @@
+{
+  "method": "update",
+  "args": {
+    "users": [],
+    "bullets": [],
+    "feeds": []
+  }
+}

@@ -36,10 +36,17 @@ std::unique_ptr<Audio> themeAudio;
 JSON lastUpdate;
 JSON lastMyUpdate;
 
+JSON defaultUpdate;
+
+int damage = 0;
+int damageAnimation = 0;
+
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
 
 double radiusFromMass(double mass) {
+	if(mass <= 0)
+		return 1;
 	double r6 = std::sqrt(6);
 	if(mass > 2000. / 9. * r6) {
 		return (-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
@@ -79,11 +86,16 @@ void init() {
 	previnput[U"left"] = MouseL.pressed();
 	previnput[U"right"] = MouseR.pressed();
 
+	ClearPrint();
+
+	defaultUpdate = JSON::Load(U"assets/data/defaultUpdate.json");
+
 	themeAudio->play();
 }
 int update() {
 	if(ws->disconnected) {
 		Console << U"disconnected from server";
+		Print << U"disconnected from server";
 		return 1;
 	}
 
@@ -108,19 +120,29 @@ int update() {
 			String received;
 			while(ws->hasReceivedText()) {
 				received = Unicode::FromUTF8(ws->getReceivedTextAndPopFromBuffer());
-				try {
-					JSON json = JSON::Parse(received);
-					// printf("received: %s\n", received.narrow().c_str());
-					if(json[U"method"] == U"joinAccepted") {
-						id = json[U"args"][U"id"].get<String>();
-					}
-					if(json[U"method"] == U"update") {
-						lastUpdate = json[U"args"];
-						lastUpdate[U"timestamp"] = frame;
-					}
-				} catch(...) {
-					printf("parse failed: %s\n", received.narrow().c_str());
+				// printf("received: %s\n", received.narrow().c_str());
+				// try {
+				if(received == U"") {
+					lastUpdate = defaultUpdate;
+					lastUpdate[U"timestamp"] = frame;
+					continue;
 				}
+				JSON json = JSON::Parse(received, AllowExceptions::Yes);
+				if(!json) {
+					printf("parse failed: %s\n", received.narrow().c_str());
+					lastUpdate = defaultUpdate;
+					lastUpdate[U"timestamp"] = frame;
+				}
+				if(json[U"method"] == U"joinAccepted") {
+					id = json[U"args"][U"id"].get<String>();
+				}
+				if(json[U"method"] == U"update") {
+					lastUpdate = json[U"args"];
+					lastUpdate[U"timestamp"] = frame;
+				}
+				// } catch(...) {
+				// 	printf("parse failed: %s\n", received.narrow().c_str());
+				// }
 			}
 
 			// send input
@@ -161,12 +183,21 @@ int update() {
 					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
 					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
 
+					if(mass < 1) {
+						printf("0\n");
+					}
+
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						if(mass < 1) {
+							printf("0.1\n");
+						}
 						lastMyUpdate = lastUpdate[U"users"][i];
 
 						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
 						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
-
+						if(mass < 1) {
+							printf("0.2\n");
+						}
 						if(KeyW.pressed() == KeyS.pressed()) {
 							lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
 						} else if(KeyW.pressed()) {
@@ -185,13 +216,23 @@ int update() {
 							lastUpdate[U"users"][i][U"vx"] =
 									double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
 						}
-
+						if(mass < 1) {
+							printf("0.3\n");
+						}
 						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
 								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
 						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
 								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
+						if(mass < 1) {
+							printf("0.4\n");
+						}
 					}
 				}
+			}
+
+			if(lastUpdate.hasElement(U"mass") &&
+				 lastMyUpdate[U"mass"].get<double>() < 1) {
+				printf("1\n");
 			}
 
 			break;
@@ -247,6 +288,11 @@ void draw() {
 
 			// Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 
+			if(lastUpdate.hasElement(U"mass") &&
+				 lastMyUpdate[U"mass"].get<double>() < 1) {
+				printf("2\n");
+			}
+
 			if(lastUpdate.hasElement(U"users")) {
 				auto users = lastUpdate[U"users"];
 				auto bullets = lastUpdate[U"bullets"];
@@ -273,6 +319,15 @@ void draw() {
 					Circle(uX - oX, uY - oY, radius)
 							.draw(ballColor)
 							.drawFrame(0, 1, textColor1);
+					if(user[U"damage"].get<int>() < 0) {
+						Triangle(uX - oX, uY - oY + radius + 5, 5, 0).draw(recoverColor);
+						Triangle(uX - oX - radius - 5, uY - oY, 5, Math::Pi * 1 / 2)
+								.draw(recoverColor);
+						Triangle(uX - oX, uY - oY - radius - 5, 5, Math::Pi * 2 / 2)
+								.draw(recoverColor);
+						Triangle(uX - oX + radius + 5, uY - oY, 5, Math::Pi * 3 / 2)
+								.draw(recoverColor);
+					}
 
 					// draw triangle looking at users cursor
 					if(uLeftClickLength) {
@@ -283,15 +338,16 @@ void draw() {
 
 						radius += 5 + uLeftClickLength / 20;
 						double l = std::sqrt(uDx * uDx + uDy * uDy);
-						if(l != 0) {
-							double dy = uDy / l, dx = uDx / l;
-							if(!dx)
-								dx = nextafter(dx, DBL_MAX);
-							double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
-							Triangle(x, y, 5 + uLeftClickLength / 10,
-											 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
-									.draw(textColor2);
+						if(!l) {
+							l = nextafter(0, 1);
 						}
+						double dy = uDy / l, dx = uDx / l;
+						if(!dx)
+							dx = nextafter(dx, DBL_MAX);
+						double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
+						Triangle(x, y, 5 + uLeftClickLength / 10,
+										 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
+								.draw(textColor2);
 					}
 
 					// draw name
@@ -326,13 +382,30 @@ void draw() {
 				}
 			}
 
-			if(lastMyUpdate.hasElement(U"strength")) {
+			if(lastUpdate.hasElement(U"mass") &&
+				 lastMyUpdate[U"mass"].get<double>() < 1) {
+				printf("3\n");
+			}
+
+			if(lastMyUpdate.hasElement(U"damage")) {
 				katasaDekasaImage->draw(0, resolution.y - 50);
 				const int strength = lastMyUpdate[U"strength"].get<int>();
 				const double mass = lastMyUpdate[U"mass"].get<double>();
 				const double radius = lastMyUpdate[U"radius"].get<double>();
+				const int lastDamage = lastMyUpdate[U"damage"].get<int>();
+				damage = lastDamage > 0 ? lastDamage : damage;
+				damageAnimation += lastDamage;
+				const double katasa_w = strength * 270 / 100;
+				const double damage_w = abs(damageAnimation * 270 / 100);
 				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
-				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, strength,
+
+				damageAnimation /= 1.5;
+
+				Rect(GAME_KATASA_DEKASA_X + katasa_w, GAME_KATASA_Y, damage_w,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(damageAnimation > 0 ? damageColor : recoverColor)
+						.drawFrame(0, 1, damageAnimation > 0 ? damageColor : recoverColor);
+				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, katasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor1)
 						.drawFrame(0, 1, textColor1);
@@ -357,6 +430,11 @@ void draw() {
 								 lastMyUpdate[U"radius"].get<double>() / 36 + 1)
 							.draw(textColor1);
 				}
+			}
+
+			if(lastUpdate.hasElement(U"mass") &&
+				 lastMyUpdate[U"mass"].get<double>() < 1) {
+				printf("4\n");
 			}
 
 			break;
