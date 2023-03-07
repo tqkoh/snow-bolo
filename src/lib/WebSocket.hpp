@@ -9,7 +9,7 @@ class WebSocket {
 															 void* userData) {
 		WebSocket* socket = (WebSocket*)userData;
 
-		Console << U"WebSocket Open";
+		// Console << U"WebSocket Open";
 
 		socket->m_hasConnection = true;
 
@@ -28,7 +28,7 @@ class WebSocket {
 																void* userData) {
 		WebSocket* socket = (WebSocket*)userData;
 
-		Console << U"WebSocket Close";
+		// Console << U"WebSocket Close";
 
 		socket->m_hasConnection = false;
 		socket->disconnected = true;
