@@ -29,6 +29,7 @@
 
 #define MAP_HEIGHT 1728
 #define MAP_WIDTH 1728
+#define MAP_MARGIN 324
 
 const Size resolution(384, 216);
 const int scaling = 8;

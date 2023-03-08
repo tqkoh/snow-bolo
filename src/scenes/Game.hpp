@@ -39,7 +39,7 @@ JSON lastMyUpdate;
 JSON defaultUpdate;
 
 int damage = 0;
-int damageBarAnimationFrame = 0;
+int damageBarAnimation = 0;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
@@ -311,6 +311,9 @@ void draw() {
 			// ballImage->draw(cx, cy - resolution.y * !odd);
 
 			backImage->draw(-oX, -oY);
+			Rect(MAP_MARGIN - oX, MAP_MARGIN - oY, MAP_WIDTH - MAP_MARGIN * 2,
+					 MAP_HEIGHT - MAP_MARGIN * 2)
+					.drawFrame(0, 1, shadowColor);
 			// backImage->overwrite(*backAndBallImage, 0, 0);
 
 			// Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
@@ -446,23 +449,25 @@ void draw() {
 				const double mass = lastMyUpdate[U"mass"].get<double>();
 				const double radius = lastMyUpdate[U"radius"].get<double>();
 				const int lastDamage = lastMyUpdate[U"damage"].get<int>();
-				damage = lastDamage > 0 ? lastDamage : damage;
-				damageBarAnimationFrame += lastDamage;
+				if(lastDamage > 0) {
+					damage = lastDamage;
+					printf("damage: %d\n", damage);
+				}
+				damageBarAnimation /= 1.5;
+				damageBarAnimation += lastDamage;
 				const double katasa_w = strength * 270 / 100;
-				const double damage_w = damageBarAnimationFrame * 270 / 100;
+				const double damage_w = std::max(0, damageBarAnimation * 270 / 100 - 2);
 				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
 
-				damageBarAnimationFrame /= 1.5;
-
-				Rect(GAME_KATASA_DEKASA_X + katasa_w, GAME_KATASA_Y, damage_w,
-						 GAME_KATASA_DEKASA_HEIGHT)
-						.draw(damageBarAnimationFrame > 0 ? damageColor : recoverColor)
-						.drawFrame(
-								0, 1, damageBarAnimationFrame > 0 ? damageColor : recoverColor);
 				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, katasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor1)
 						.drawFrame(0, 1, textColor1);
+				Rect(GAME_KATASA_DEKASA_X + katasa_w + 2, GAME_KATASA_Y, damage_w,
+						 GAME_KATASA_DEKASA_HEIGHT)
+						.draw(damageBarAnimation > 0 ? damageColor : recoverColor)
+						.drawFrame(0, 1,
+											 damageBarAnimation > 0 ? damageColor : recoverColor);
 				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2 + 1, GAME_KATASA_Y,
 																		shadowColor);
 				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y,
