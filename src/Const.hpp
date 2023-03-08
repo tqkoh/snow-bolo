@@ -52,3 +52,4 @@ const ColorF shadowColor(0, .15);
 #define ANIMATION_DAMAGE_LENGTH 30
 
 #define CHAT_REMAIN 60 * 5
+#define LEADERBOARD_X 280
