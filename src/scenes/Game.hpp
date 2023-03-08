@@ -6,24 +6,25 @@
 
 #define MOD(n, m) (((n) % (m) + (m)) % (m))
 
+namespace Game {
+
+std::unique_ptr<WebSocket> ws;
+
 enum GameState {
 	PREPARE,
 	PLAYING,
 	DEAD,
 
 	GameState_NUM
-};
-
-namespace Game {
+} state = PREPARE;
 
 // WebSocket ws(API_URL);
-std::unique_ptr<WebSocket> ws;
-GameState state = PREPARE;
 TextEditState name;
 Point center(resolution / 2);
 
 std::unique_ptr<Font> fontSmall;
 std::unique_ptr<Font> fontMedium;
+std::unique_ptr<Font> fontLarge;
 JSON previnput;
 
 std::unique_ptr<Texture> backImage;
@@ -39,10 +40,18 @@ JSON lastMyUpdate;
 JSON defaultUpdate;
 
 int damage = 0;
-int damageBarAnimation = 0;
+double damageBarAnimation = 0;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
+
+enum SpectateMode {
+	OFF,
+	PLAYER,
+	MAP,
+
+	SpectateMode_NUM
+} spectateMode = OFF;
 
 class damageAnimation {
 public:
@@ -88,6 +97,8 @@ void load() {
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
 	fontMedium =
 			std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
+	fontLarge =
+			std::make_unique<Font>(FONT_SIZE_LARGE, FONT_PATH, FontStyle::Bitmap);
 	backImage = std::make_unique<Texture>(U"assets/images/back.png");
 	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
 	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
@@ -113,6 +124,7 @@ void init() {
 	previnput[U"left"] = MouseL.pressed();
 	previnput[U"right"] = MouseR.pressed();
 
+	Print.setFont(*fontLarge);
 	ClearPrint();
 
 	defaultUpdate = JSON::Load(U"assets/data/defaultUpdate.json");
@@ -133,7 +145,7 @@ int update() {
 			if(KeyEnter.down()) {
 				JSON json, input;
 				input[U"name"] = name.text;
-				json[U"Method"] = U"join";
+				json[U"method"] = U"join";
 				json[U"Args"] = input;
 				ws->SendText(json.formatUTF8Minimum());
 				state = PLAYING;
@@ -145,35 +157,48 @@ int update() {
 		}
 		case PLAYING: {
 			String received;
-			while(ws->hasReceivedText()) {
-				received = Unicode::FromUTF8(ws->getReceivedTextAndPopFromBuffer());
-				// printf("received: %s\n", received.narrow().c_str());
-				// try {
-				if(received == U"") {
-					lastUpdate = defaultUpdate;
-					lastUpdate[U"timestamp"] = frame;
-					continue;
+			{
+				int dead = 0;
+				while(ws->hasReceivedText()) {
+					received = Unicode::FromUTF8(ws->getReceivedTextAndPopFromBuffer());
+					// 0&&printf("received: %s\n", received.narrow().c_str());
+					// try {
+					if(received == U"") {
+						lastUpdate = defaultUpdate;
+						lastUpdate[U"timestamp"] = frame;
+						continue;
+					}
+					JSON json = JSON::Parse(received, AllowExceptions::Yes);
+					if(!json) {
+						0 && printf("parse failed: %s\n", received.narrow().c_str());
+						lastUpdate = defaultUpdate;
+						lastUpdate[U"timestamp"] = frame;
+					}
+					if(json[U"method"] == U"joinAccepted") {
+						id = json[U"args"][U"id"].get<String>();
+						spectateMode = OFF;
+					} else if(json[U"method"] == U"dead") {
+						dead = lastMyUpdate[U"strength"].get<int>();
+						printf("dead received\n");
+						spectateMode = MAP;
+					} else if(json[U"method"] == U"update") {
+						lastUpdate = json[U"args"];
+						lastUpdate[U"timestamp"] = frame;
+					} else if(json[U"method"] == U"message") {
+						Print << json[U"args"][U"message"].get<String>();
+					}
+					// } catch(...) {
+					// 	0&&printf("parse failed: %s\n", received.narrow().c_str());
+					// }
 				}
-				JSON json = JSON::Parse(received, AllowExceptions::Yes);
-				if(!json) {
-					printf("parse failed: %s\n", received.narrow().c_str());
-					lastUpdate = defaultUpdate;
-					lastUpdate[U"timestamp"] = frame;
+				if(dead) {
+					lastMyUpdate[U"damage"] = dead;
+					lastMyUpdate[U"strength"] = 0;
 				}
-				if(json[U"method"] == U"joinAccepted") {
-					id = json[U"args"][U"id"].get<String>();
-				}
-				if(json[U"method"] == U"update") {
-					lastUpdate = json[U"args"];
-					lastUpdate[U"timestamp"] = frame;
-				}
-				// } catch(...) {
-				// 	printf("parse failed: %s\n", received.narrow().c_str());
-				// }
 			}
 
-			// send input
-			{
+			if(spectateMode == OFF) {
+				// send input
 				JSON json, input;
 				auto p = Cursor::Pos() / scaling;
 				input[U"W"] = KeyW.pressed();
@@ -185,8 +210,8 @@ int update() {
 				input[U"dy"] = p.y - center.y;
 				input[U"dx"] = p.x - center.x;
 
-				json[U"Method"] = U"input";
-				json[U"Args"] = input;
+				json[U"method"] = U"input";
+				json[U"args"] = input;
 
 				// look at the md #2
 				if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
@@ -200,7 +225,11 @@ int update() {
 					ws->SendText(json.formatUTF8Minimum());
 					previnput = input;
 
-					// printf("time: %lld", std::time(nullptr));
+					// 0&&printf("time: %lld", std::time(nullptr));
+				}
+			} else if(spectateMode == PLAYER) {
+				if(KeyShift.down()) {
+					spectateMode = MAP;
 				}
 			}
 
@@ -211,55 +240,85 @@ int update() {
 					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
 
 					if(mass < 1) {
-						printf("0\n");
+						0 && printf("0\n");
 					}
 
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
 						if(mass < 1) {
-							printf("0.1\n");
+							0 && printf("0.1\n");
 						}
 						lastMyUpdate = lastUpdate[U"users"][i];
 
 						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
 						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
 						if(mass < 1) {
-							printf("0.2\n");
+							0 && printf("0.2\n");
 						}
-						if(KeyW.pressed() == KeyS.pressed()) {
-							lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
-						} else if(KeyW.pressed()) {
-							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
-						} else {
-							lastUpdate[U"users"][i][U"vy"] =
-									double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
-						}
-						if(KeyA.pressed() == KeyD.pressed()) {
-							lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
-						} else if(KeyA.pressed()) {
-							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
-						} else {
-							lastUpdate[U"users"][i][U"vx"] =
-									double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
-						}
-						if(mass < 1) {
-							printf("0.3\n");
-						}
+						// if(spectateMode == OFF) {	 // conceal lag
+						// 	if(KeyW.pressed() == KeyS.pressed()) {
+						// 		lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
+						// 	} else if(KeyW.pressed()) {
+						// 		lastUpdate[U"users"][i][U"vy"] =
+						// 				double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
+						// 	} else {
+						// 		lastUpdate[U"users"][i][U"vy"] =
+						// 				double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
+						// 	}
+						// 	if(KeyA.pressed() == KeyD.pressed()) {
+						// 		lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
+						// 	} else if(KeyA.pressed()) {
+						// 		lastUpdate[U"users"][i][U"vx"] =
+						// 				double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
+						// 	} else {
+						// 		lastUpdate[U"users"][i][U"vx"] =
+						// 				double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
+						// 	}
+						// }
 						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
 								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
 						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
 								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
-						if(mass < 1) {
-							printf("0.4\n");
-						}
 					}
 				}
 			}
 
-			if(lastUpdate.hasElement(U"mass") &&
-				 lastMyUpdate[U"mass"].get<double>() < 1) {
-				printf("1\n");
+			if(spectateMode == MAP) {
+				0 && printf("00");
+				// update origin using input
+				if(KeyW.pressed() == KeyS.pressed()) {
+					oVY = double(oVY - oVY * V_K);
+				} else if(KeyW.pressed()) {
+					oVY = double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
+				} else {
+					oVY = double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
+				}
+				if(KeyA.pressed() == KeyD.pressed()) {
+					oVX = double(oVX - oVX * V_K);
+				} else if(KeyA.pressed()) {
+					oVX = double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
+				} else {
+					oVX = double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
+				}
+				oY += oVY;
+				oX += oVX;
+
+				0 && printf("11\n");
+				// start spectating user clicked
+				if(MouseL.down()) {
+					Vec2 p = Cursor::Pos() / scaling + Vec2(oX, oY);
+					for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
+						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
+										 lastUpdate[U"users"][i][U"y"].get<double>());
+						if((p - pos).length() < radius) {
+							spectateMode = PLAYER;
+							id = lastUpdate[U"users"][i][U"id"].get<String>();
+							break;
+						}
+					}
+					spectateMode = PLAYER;
+				}
+				0 && printf("22\n");
 			}
 
 			break;
@@ -296,6 +355,8 @@ void draw() {
 			break;
 		}
 		case PLAYING: {
+			if(spectateMode == MAP)
+				0 && printf("33\n");
 			// draw background
 			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
 					odd = MOD(int(-oY) / resolution.y, 2);
@@ -320,7 +381,8 @@ void draw() {
 
 			if(lastUpdate.hasElement(U"mass") &&
 				 lastMyUpdate[U"mass"].get<double>() < 1) {
-				printf("2\n");
+				if(spectateMode == MAP)
+					0 && printf("2\n");
 			}
 
 			if(lastUpdate.hasElement(U"users")) {
@@ -328,6 +390,8 @@ void draw() {
 				auto bullets = lastUpdate[U"bullets"];
 				auto feeds = lastUpdate[U"feeds"];
 
+				if(spectateMode == MAP)
+					0 && printf("44\n");
 				// draw users
 
 				auto uArray = users.arrayView();
@@ -351,6 +415,8 @@ void draw() {
 					int uLeftClickLength = user[U"leftClickLength"].get<int>();
 					int uDamage = user[U"damage"].get<int>();
 
+					if(spectateMode == MAP)
+						0 && printf("44.0.1\n");
 					// draw ball
 					int radius = user[U"radius"].get<double>();
 					Circle(uX - oX, uY - oY, radius)
@@ -366,6 +432,8 @@ void draw() {
 								.draw(recoverColor);
 					}
 
+					if(spectateMode == MAP)
+						0 && printf("44.0.2\n");
 					// draw triangle looking at users cursor
 					if(uLeftClickLength) {
 						if(uId == id) {
@@ -387,6 +455,8 @@ void draw() {
 								.draw(textColor2);
 					}
 
+					if(spectateMode == MAP)
+						0 && printf("44.0.3\n");
 					// draw name
 					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
 
@@ -397,6 +467,10 @@ void draw() {
 						user[U"damage"] = 0;
 					}
 				}
+
+				if(spectateMode == MAP)
+					0 && printf("44.1\n");
+
 				for(const auto& e : bullets.arrayView()) {
 					int bY = e[U"y"].get<double>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
@@ -410,6 +484,8 @@ void draw() {
 							.draw(ballColor)
 							.drawFrame(0, 1, textColor2);
 				}
+				if(spectateMode == MAP)
+					0 && printf("44.2\n");
 				for(const auto& e : feeds.arrayView()) {
 					int fY = e[U"y"].get<double>() +
 									 (frame - lastUpdate[U"timestamp"].get<int>()) *
@@ -424,6 +500,8 @@ void draw() {
 							.drawFrame(0, 1, paintColor1);
 				}
 
+				if(spectateMode == MAP)
+					0 && printf("55\n");
 				// draw damage
 				for(auto it = damageAnimations.begin(); it != damageAnimations.end();) {
 					auto next = it;
@@ -438,11 +516,6 @@ void draw() {
 				}
 			}
 
-			if(lastUpdate.hasElement(U"mass") &&
-				 lastMyUpdate[U"mass"].get<double>() < 1) {
-				printf("3\n");
-			}
-
 			if(lastMyUpdate.hasElement(U"damage")) {
 				katasaDekasaImage->draw(0, resolution.y - 50);
 				const int strength = lastMyUpdate[U"strength"].get<int>();
@@ -451,13 +524,13 @@ void draw() {
 				const int lastDamage = lastMyUpdate[U"damage"].get<int>();
 				if(lastDamage > 0) {
 					damage = lastDamage;
-					printf("damage: %d\n", damage);
 				}
 				damageBarAnimation /= 1.5;
 				damageBarAnimation += lastDamage;
-				const double katasa_w = strength * 270 / 100;
-				const double damage_w = std::max(0, damageBarAnimation * 270 / 100 - 2);
-				const double dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
+				lastMyUpdate[U"damage"] = 0;
+				const int katasa_w = strength * 270 / 100;
+				const int damage_w = std::max(0., damageBarAnimation * 270 / 100 - 2);
+				const int dekasa_w = radius / (RADIUS_M + 10. / 3. * sqrt(6)) * 270;
 
 				Rect(GAME_KATASA_DEKASA_X, GAME_KATASA_Y, katasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
@@ -491,11 +564,8 @@ void draw() {
 				}
 			}
 
-			if(lastUpdate.hasElement(U"mass") &&
-				 lastMyUpdate[U"mass"].get<double>() < 1) {
-				printf("4\n");
-			}
-
+			if(spectateMode == MAP)
+				0 && printf("66\n");
 			break;
 		}
 		case DEAD: {

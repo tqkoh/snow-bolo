@@ -25,7 +25,7 @@
 #define FONT_PATH U"assets/fonts/JF-Dot-k12x10.ttf"
 #define FONT_SIZE_SMALL 10
 #define FONT_SIZE_MEDIUM 20
-#define FONT_SIZE_LARGE 30
+#define FONT_SIZE_LARGE 40
 
 #define MAP_HEIGHT 1728
 #define MAP_WIDTH 1728
