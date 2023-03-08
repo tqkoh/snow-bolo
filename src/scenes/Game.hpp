@@ -260,10 +260,22 @@ int update() {
 
 					// 0&&printf("time: %lld", std::time(nullptr));
 				}
-			} else if(spectateMode == PLAYER) {
-				if(KeyShift.down()) {
-					spectateMode = MAP;
-					id = U"";
+			} else {
+				if(spectateMode == PLAYER) {
+					if(KeyShift.down()) {
+						spectateMode = MAP;
+						id = U"";
+					}
+				}
+				if(KeyEnter.down()) {
+					JSON json, input;
+					input[U"name"] = name.text;
+					json[U"method"] = U"join";
+					json[U"Args"] = input;
+					ws->SendText(json.formatUTF8Minimum());
+					state = PLAYING;
+					name.active = false;
+					spectateMode = OFF;
 				}
 			}
 
