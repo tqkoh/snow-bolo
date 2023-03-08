@@ -45,6 +45,7 @@ double damageBarAnimation = 0;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
+String myId;
 
 enum SpectateMode {
 	OFF,
@@ -89,6 +90,27 @@ struct chatMessage {
 };
 
 std::deque<chatMessage> chatMessages;
+
+struct leaderBoardRow {
+	String id;
+	String name;
+	String massString;
+	leaderBoardRow(String id, String name, int mass) : id(id) {
+		if(name.size() > 8)
+			this->name = name.substr(0, 6) + U"..";
+		else
+			this->name = String(8 - name.size(), U' ') + name;
+		if(mass < 1000)
+			massString = ToString(mass);
+		else if(mass < 1000000)
+			massString = ToString(mass / 1000) + U"K";
+		else {
+			massString = ToString(mass / 1000000) + U"M";
+		}
+	}
+};
+
+std::vector<leaderBoardRow> leaderBoard;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -185,7 +207,8 @@ int update() {
 						lastUpdate[U"timestamp"] = frame;
 					}
 					if(json[U"method"] == U"joinAccepted") {
-						id = json[U"args"][U"id"].get<String>();
+						myId = json[U"args"][U"id"].get<String>();
+						id = myId;
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
@@ -244,11 +267,19 @@ int update() {
 				}
 			}
 
-			// update my data
+			// update users' data
+			leaderBoard.clear();
 			if(lastUpdate.hasElement(U"users")) {
 				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
 					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
 					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
+
+					if(i < 5) {
+						leaderBoard.emplace_back(
+								lastUpdate[U"users"][i][U"id"].get<String>(),
+								lastUpdate[U"users"][i][U"name"].get<String>(),
+								int(lastUpdate[U"users"][i][U"mass"].get<double>()));
+					}
 
 					if(mass < 1) {
 						0 && printf("0\n");
@@ -260,31 +291,12 @@ int update() {
 						}
 						lastMyUpdate = lastUpdate[U"users"][i];
 
+						// conceal lag
 						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
 						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
 						if(mass < 1) {
 							0 && printf("0.2\n");
 						}
-						// if(spectateMode == OFF) {	 // conceal lag
-						// 	if(KeyW.pressed() == KeyS.pressed()) {
-						// 		lastUpdate[U"users"][i][U"vy"] = double(oVY - oVY * V_K);
-						// 	} else if(KeyW.pressed()) {
-						// 		lastUpdate[U"users"][i][U"vy"] =
-						// 				double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
-						// 	} else {
-						// 		lastUpdate[U"users"][i][U"vy"] =
-						// 				double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
-						// 	}
-						// 	if(KeyA.pressed() == KeyD.pressed()) {
-						// 		lastUpdate[U"users"][i][U"vx"] = double(oVX - oVX * V_K);
-						// 	} else if(KeyA.pressed()) {
-						// 		lastUpdate[U"users"][i][U"vx"] =
-						// 				double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
-						// 	} else {
-						// 		lastUpdate[U"users"][i][U"vx"] =
-						// 				double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
-						// 	}
-						// }
 						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
 								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
 						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
@@ -595,6 +607,24 @@ void draw() {
 
 			if(spectateMode == MAP)
 				0 && printf("66\n");
+
+			{
+				// draw leaderboard
+				for(int i = 0; i < leaderBoard.size(); ++i) {
+					auto e = leaderBoard[i];
+					if(e.id == myId) {
+						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
+								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
+								.draw(LEADERBOARD_X, 10 + i * 20, textColor2);
+					} else {
+						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
+								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
+								.draw(LEADERBOARD_X, 10 + i * 20, textColor1);
+					}
+				}
+			}
 
 			{
 				// draw chat
