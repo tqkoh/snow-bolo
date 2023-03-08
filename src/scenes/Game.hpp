@@ -124,6 +124,8 @@ double radiusFromMass(double mass) {
 	return std::pow(mass, 1. / 3.);
 }
 
+std::map<std::string, bool> keys;
+
 void load() {
 	fontSmall =
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
@@ -168,6 +170,13 @@ int update() {
 		Console << U"disconnected from server";
 		Print << U"disconnected from server";
 		return 1;
+	}
+
+	{
+		keys["W"] = KeyW.pressed() || KeyUp.pressed();
+		keys["A"] = KeyA.pressed() || KeyLeft.pressed();
+		keys["S"] = KeyS.pressed() || KeyDown.pressed();
+		keys["D"] = KeyD.pressed() || KeyRight.pressed();
 	}
 
 	switch(state) {
@@ -234,10 +243,10 @@ int update() {
 				// send input
 				JSON json, input;
 				auto p = Cursor::Pos() / scaling;
-				input[U"W"] = KeyW.pressed();
-				input[U"A"] = KeyA.pressed();
-				input[U"S"] = KeyS.pressed();
-				input[U"D"] = KeyD.pressed();
+				input[U"W"] = keys["W"];
+				input[U"A"] = keys["A"];
+				input[U"S"] = keys["S"];
+				input[U"D"] = keys["D"];
 				input[U"left"] = MouseL.pressed();
 				input[U"right"] = MouseR.pressed();
 				input[U"dy"] = p.y - center.y;
@@ -249,10 +258,10 @@ int update() {
 				// look at the md #2
 				if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
 					 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
-					 KeyW.pressed() != previnput[U"W"].get<bool>() ||
-					 KeyA.pressed() != previnput[U"A"].get<bool>() ||
-					 KeyS.pressed() != previnput[U"S"].get<bool>() ||
-					 KeyD.pressed() != previnput[U"D"].get<bool>() ||
+					 keys["W"] != previnput[U"W"].get<bool>() ||
+					 keys["A"] != previnput[U"A"].get<bool>() ||
+					 keys["S"] != previnput[U"S"].get<bool>() ||
+					 keys["D"] != previnput[U"D"].get<bool>() ||
 					 MouseL.pressed() != previnput[U"left"].get<bool>() ||
 					 MouseR.pressed() != previnput[U"right"].get<bool>()) {
 					ws->SendText(json.formatUTF8Minimum());
@@ -320,16 +329,16 @@ int update() {
 			if(spectateMode == MAP) {
 				0 && printf("00");
 				// update origin using input
-				if(KeyW.pressed() == KeyS.pressed()) {
+				if(keys["W"] == keys["S"]) {
 					oVY = double(oVY - oVY * V_K);
-				} else if(KeyW.pressed()) {
+				} else if(keys["W"]) {
 					oVY = double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
 				} else {
 					oVY = double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
 				}
-				if(KeyA.pressed() == KeyD.pressed()) {
+				if(keys["A"] == keys["D"]) {
 					oVX = double(oVX - oVX * V_K);
-				} else if(KeyA.pressed()) {
+				} else if(keys["A"]) {
 					oVX = double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
 				} else {
 					oVX = double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
@@ -593,7 +602,11 @@ void draw() {
 				}
 
 				miniMapImage->draw(resolution - Vec2(50, 50));
-				if(lastMyUpdate.hasElement(U"x")) {
+				if(spectateMode == MAP) {
+					Rect(resolution.x - 50 + oX / 36, resolution.y - 50 + oY / 36,
+							 resolution.x / 36, resolution.y / 36)
+							.drawFrame(0, 1, textColor1);
+				} else if(lastMyUpdate.hasElement(U"x")) {
 					Circle(resolution - Vec2(50, 50) +
 										 Vec2(lastMyUpdate[U"x"].get<double>() / 36,
 													lastMyUpdate[U"y"].get<double>() / 36),
