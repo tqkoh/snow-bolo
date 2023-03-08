@@ -50,3 +50,5 @@ const ColorF shadowColor(0, .15);
 #define GAME_KATASA_DEKASA_HEIGHT 10
 
 #define ANIMATION_DAMAGE_LENGTH 30
+
+#define CHAT_REMAIN 60 * 5

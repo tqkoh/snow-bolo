@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include "../Const.hpp"
 #include "../Global.hpp"
 #include "lib/WebSocket.hpp"
@@ -79,6 +80,15 @@ const bool operator<(const damageAnimation& lhs, const damageAnimation& rhs) {
 }
 
 std::set<damageAnimation> damageAnimations;
+
+struct chatMessage {
+	String message;
+	int timestamp;
+	chatMessage(String message, int timestamp)
+			: message(message), timestamp(timestamp) {}
+};
+
+std::deque<chatMessage> chatMessages;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -179,13 +189,13 @@ int update() {
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
-						printf("dead received\n");
 						spectateMode = MAP;
 					} else if(json[U"method"] == U"update") {
 						lastUpdate = json[U"args"];
 						lastUpdate[U"timestamp"] = frame;
 					} else if(json[U"method"] == U"message") {
-						Print << json[U"args"][U"message"].get<String>();
+						String message = json[U"args"][U"message"].get<String>();
+						chatMessages.emplace_back(message, frame);
 					}
 					// } catch(...) {
 					// 	0&&printf("parse failed: %s\n", received.narrow().c_str());
@@ -230,6 +240,7 @@ int update() {
 			} else if(spectateMode == PLAYER) {
 				if(KeyShift.down()) {
 					spectateMode = MAP;
+					id = U"";
 				}
 			}
 
@@ -310,13 +321,13 @@ int update() {
 						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
 						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
 										 lastUpdate[U"users"][i][U"y"].get<double>());
+						printf("len: %f, radius: %f", (p - pos).length(), radius);
 						if((p - pos).length() < radius) {
 							spectateMode = PLAYER;
 							id = lastUpdate[U"users"][i][U"id"].get<String>();
 							break;
 						}
 					}
-					spectateMode = PLAYER;
 				}
 				0 && printf("22\n");
 			}
@@ -502,18 +513,6 @@ void draw() {
 
 				if(spectateMode == MAP)
 					0 && printf("55\n");
-				// draw damage
-				for(auto it = damageAnimations.begin(); it != damageAnimations.end();) {
-					auto next = it;
-					++next;
-					if(next != damageAnimations.end() && it->id == next->id) {
-						it = damageAnimations.erase(it);
-					} else if(it->drawDamage(oY, oX)) {
-						it = damageAnimations.erase(it);
-					} else {
-						++it;
-					}
-				}
 			}
 
 			if(lastMyUpdate.hasElement(U"damage")) {
@@ -541,18 +540,33 @@ void draw() {
 						.draw(damageBarAnimation > 0 ? damageColor : recoverColor)
 						.drawFrame(0, 1,
 											 damageBarAnimation > 0 ? damageColor : recoverColor);
-				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2 + 1, GAME_KATASA_Y,
-																		shadowColor);
-				(*fontSmall)(strength).draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y,
-																		textColor1);
+
+				{
+					String strengthString = U"{}"_fmt(strength);
+					if(spectateMode == PLAYER || spectateMode == MAP) {
+						strengthString =
+								U"{}: {}"_fmt(lastMyUpdate[U"name"].get<String>(), strength);
+					}
+					(*fontSmall)(strengthString)
+							.draw(GAME_KATASA_DEKASA_X + 2 + 1, GAME_KATASA_Y, shadowColor);
+					(*fontSmall)(strengthString)
+							.draw(GAME_KATASA_DEKASA_X + 2, GAME_KATASA_Y, textColor1);
+				}
 				Rect(GAME_KATASA_DEKASA_X, GAME_DEKASA_Y, dekasa_w,
 						 GAME_KATASA_DEKASA_HEIGHT)
 						.draw(paintColor2)
 						.drawFrame(0, 1, textColor2);
-				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2 + 1,
-																		 GAME_DEKASA_Y, shadowColor);
-				(*fontSmall)(int(mass)).draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y,
-																		 textColor2);
+				{
+					String massString = U"{}"_fmt(int(mass));
+					if(spectateMode == PLAYER || spectateMode == MAP) {
+						massString =
+								U"{}: {}"_fmt(lastMyUpdate[U"name"].get<String>(), int(mass));
+					}
+					(*fontSmall)(massString)
+							.draw(GAME_KATASA_DEKASA_X + 2 + 1, GAME_DEKASA_Y, shadowColor);
+					(*fontSmall)(massString)
+							.draw(GAME_KATASA_DEKASA_X + 2, GAME_DEKASA_Y, textColor2);
+				}
 
 				miniMapImage->draw(resolution - Vec2(50, 50));
 				if(lastMyUpdate.hasElement(U"x")) {
@@ -564,8 +578,49 @@ void draw() {
 				}
 			}
 
+			{
+				// draw damage
+				for(auto it = damageAnimations.begin(); it != damageAnimations.end();) {
+					auto next = it;
+					++next;
+					if(next != damageAnimations.end() && it->id == next->id) {
+						it = damageAnimations.erase(it);
+					} else if(it->drawDamage(oY, oX)) {
+						it = damageAnimations.erase(it);
+					} else {
+						++it;
+					}
+				}
+			}
+
 			if(spectateMode == MAP)
 				0 && printf("66\n");
+
+			{
+				// draw chat
+				while(chatMessages.size()) {
+					auto&& e = chatMessages.front();
+					if(e.timestamp + CHAT_REMAIN < frame) {
+						chatMessages.pop_front();
+					} else {
+						break;
+					}
+					chatMessages.pop_front();
+				}
+				while(chatMessages.size() > 10) {
+					chatMessages.pop_front();
+				}
+				{
+					int i = 0, n = chatMessages.size();
+					for(auto e : chatMessages) {
+						++i;
+						(*fontSmall)(e.message).draw(
+								11, resolution.y - 90 - (n - 1 - i) * 20, shadowColor);
+						(*fontSmall)(e.message).draw(
+								10, resolution.y - 90 - (n - 1 - i) * 20, textColor1);
+					}
+				}
+			}
 			break;
 		}
 		case DEAD: {
