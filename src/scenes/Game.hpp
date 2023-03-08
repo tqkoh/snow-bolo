@@ -605,7 +605,6 @@ void draw() {
 					} else {
 						break;
 					}
-					chatMessages.pop_front();
 				}
 				while(chatMessages.size() > 10) {
 					chatMessages.pop_front();
