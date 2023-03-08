@@ -25,10 +25,11 @@
 #define FONT_PATH U"assets/fonts/JF-Dot-k12x10.ttf"
 #define FONT_SIZE_SMALL 10
 #define FONT_SIZE_MEDIUM 20
-#define FONT_SIZE_LARGE 30
+#define FONT_SIZE_LARGE 40
 
 #define MAP_HEIGHT 1728
 #define MAP_WIDTH 1728
+#define MAP_MARGIN 324
 
 const Size resolution(384, 216);
 const int scaling = 8;
@@ -47,3 +48,5 @@ const ColorF shadowColor(0, .15);
 #define GAME_KATASA_DEKASA_X 60
 #define GAME_DEKASA_Y 198
 #define GAME_KATASA_DEKASA_HEIGHT 10
+
+#define ANIMATION_DAMAGE_LENGTH 30
