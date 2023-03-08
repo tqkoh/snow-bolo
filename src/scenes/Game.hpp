@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include "../Const.hpp"
 #include "../Global.hpp"
 #include "lib/WebSocket.hpp"
@@ -79,6 +80,15 @@ const bool operator<(const damageAnimation& lhs, const damageAnimation& rhs) {
 }
 
 std::set<damageAnimation> damageAnimations;
+
+struct chatMessage {
+	String message;
+	int timestamp;
+	chatMessage(String message, int timestamp)
+			: message(message), timestamp(timestamp) {}
+};
+
+std::deque<chatMessage> chatMessages;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -184,7 +194,8 @@ int update() {
 						lastUpdate = json[U"args"];
 						lastUpdate[U"timestamp"] = frame;
 					} else if(json[U"method"] == U"message") {
-						Print << json[U"args"][U"message"].get<String>();
+						String message = json[U"args"][U"message"].get<String>();
+						chatMessages.emplace_back(message, frame);
 					}
 					// } catch(...) {
 					// 	0&&printf("parse failed: %s\n", received.narrow().c_str());
@@ -584,6 +595,32 @@ void draw() {
 
 			if(spectateMode == MAP)
 				0 && printf("66\n");
+
+			{
+				// draw chat
+				while(chatMessages.size()) {
+					auto&& e = chatMessages.front();
+					if(e.timestamp + CHAT_REMAIN < frame) {
+						chatMessages.pop_front();
+					} else {
+						break;
+					}
+					chatMessages.pop_front();
+				}
+				while(chatMessages.size() > 10) {
+					chatMessages.pop_front();
+				}
+				{
+					int i = 0, n = chatMessages.size();
+					for(auto e : chatMessages) {
+						++i;
+						(*fontSmall)(e.message).draw(
+								11, resolution.y - 90 - (n - 1 - i) * 20, shadowColor);
+						(*fontSmall)(e.message).draw(
+								10, resolution.y - 90 - (n - 1 - i) * 20, textColor1);
+					}
+				}
+			}
 			break;
 		}
 		case DEAD: {
