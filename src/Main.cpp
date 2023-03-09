@@ -19,7 +19,7 @@ EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
 
 void Main() {
-	// System::SetTerminationTriggers(UserAction::CloseButtonClicked);
+	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
 
 	Scene::SetTextureFilter(TextureFilter::Nearest);
 	// Scene::SetResizeMode(ResizeMode::Keep);
@@ -31,7 +31,7 @@ void Main() {
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 
-	Window::SetTitle(U"snowball");
+	Window::SetTitle(U"snow-bolo");
 
 	MainState state = TITLE;	// TITLE;
 	Title::init();

@@ -51,5 +51,16 @@ const ColorF shadowColor(0, .15);
 
 #define ANIMATION_DAMAGE_LENGTH 30
 
-#define CHAT_REMAIN 60 * 5
+#define CHAT_REMAIN (60 * 5)
 #define LEADERBOARD_X 280
+
+#define HISTORY_MIN_INTERVAL (60 * 1)
+#define HISTORY_MIN_APPEND_W 2
+#define HISTORY_Y 62
+#define HISTORY_X 150
+#define HISTORY_H (166 - 62)
+#define HISTORY_W (306 - 150)
+
+#define TWEET_URL(maxMass)                                                                                 \
+	U"https://twitter.com/intent/tweet?url=tqk.blue/snowball&text=snow-bolo でデカさ {} を達成したよ！"_fmt( \
+			(maxMass))

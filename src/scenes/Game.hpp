@@ -7,6 +7,8 @@
 
 #define MOD(n, m) (((n) % (m) + (m)) % (m))
 
+EM_JS(void, openLink, (const char* url), {window.open(UTF8ToString(url))});
+
 namespace Game {
 
 std::unique_ptr<WebSocket> ws;
@@ -14,10 +16,11 @@ std::unique_ptr<WebSocket> ws;
 enum GameState {
 	PREPARE,
 	PLAYING,
-	DEAD,
 
 	GameState_NUM
 } state = PREPARE;
+
+int debugLevel = 0;
 
 // WebSocket ws(API_URL);
 TextEditState name;
@@ -33,6 +36,7 @@ std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
 std::unique_ptr<Texture> katasaDekasaImage;
 std::unique_ptr<Texture> miniMapImage;
+std::unique_ptr<Texture> resultImage;
 std::unique_ptr<Audio> themeAudio;
 
 JSON lastUpdate;
@@ -91,15 +95,18 @@ struct chatMessage {
 
 std::deque<chatMessage> chatMessages;
 
+String shorten(String str, int l) {
+	if(str.size() > l) {
+		return str.substr(0, l - 2) + U"..";
+	}
+	return String(l - str.size(), U' ') + str;
+}
 struct leaderBoardRow {
 	String id;
 	String name;
 	String massString;
 	leaderBoardRow(String id, String name, int mass) : id(id) {
-		if(name.size() > 8)
-			this->name = name.substr(0, 6) + U"..";
-		else
-			this->name = String(8 - name.size(), U' ') + name;
+		this->name = shorten(name, 8);
 		if(mass < 1000)
 			massString = ToString(mass);
 		else if(mass < 1000000)
@@ -111,6 +118,10 @@ struct leaderBoardRow {
 };
 
 std::vector<leaderBoardRow> leaderBoard;
+
+bool resultShowing = false;
+int maxMass = 0;
+int bestRank = 998244353;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -126,6 +137,18 @@ double radiusFromMass(double mass) {
 
 std::map<std::string, bool> keys;
 
+struct HistoryRecord {
+	int frame, mass, strength;
+	HistoryRecord(int frame, int mass, int strength)
+			: frame(frame), mass(mass), strength(strength) {}
+};
+std::vector<HistoryRecord> history;
+LineString historyMassLine;
+std::vector<Vec2> historyStrength;
+Polygon historyStrengthPolygon;
+int64_t joinedFrame = 0;
+int64_t deadFrame = 998244353;
+
 void load() {
 	fontSmall =
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
@@ -139,6 +162,7 @@ void load() {
 	katasaDekasaImage =
 			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
 	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
+	resultImage = std::make_unique<Texture>(U"assets/images/result.png");
 
 	themeAudio =
 			std::make_unique<Audio>(U"assets/sounds/snowball_theme.mp3",
@@ -165,6 +189,23 @@ void init() {
 
 	themeAudio->play();
 }
+void join() {
+	JSON json, input;
+	input[U"name"] = name.text;
+	json[U"method"] = U"join";
+	json[U"Args"] = input;
+	ws->SendText(json.formatUTF8Minimum());
+	state = PLAYING;
+	name.active = false;
+	spectateMode = OFF;
+	resultShowing = false;
+	history.clear();
+	history.emplace_back(frame, 1, 100);
+	joinedFrame = frame;
+	deadFrame = 998244353;
+	maxMass = 0;
+	bestRank = 998244353;
+}
 int update() {
 	if(ws->disconnected) {
 		Console << U"disconnected from server";
@@ -184,20 +225,17 @@ int update() {
 			name.active = true;
 
 			if(KeyEnter.down()) {
-				JSON json, input;
-				input[U"name"] = name.text;
-				json[U"method"] = U"join";
-				json[U"Args"] = input;
-				ws->SendText(json.formatUTF8Minimum());
-				state = PLAYING;
-				name.active = false;
+				join();
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
 
 			break;
 		}
 		case PLAYING: {
+			if(debugLevel > 5)
+				printf("update.0");
 			String received;
+			// process received data
 			{
 				int dead = 0;
 				while(ws->hasReceivedText()) {
@@ -221,7 +259,32 @@ int update() {
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
+						resultShowing = true;
 						spectateMode = MAP;
+						deadFrame = frame;
+
+						int aliveLength = deadFrame - joinedFrame;
+
+						historyMassLine.clear();
+						historyStrength.clear();
+						historyStrength.emplace_back(HISTORY_X, HISTORY_Y + HISTORY_H);
+						for(auto e : history) {
+							Vec2 massPoint(
+									HISTORY_X + (e.frame - joinedFrame) * HISTORY_W / aliveLength,
+									HISTORY_Y +
+											(1. - double(e.mass) / double(maxMass)) * HISTORY_H);
+							historyMassLine.emplace_back(massPoint);
+
+							Vec2 strengthPoint(
+									HISTORY_X + (e.frame - joinedFrame) * HISTORY_W / aliveLength,
+									HISTORY_Y + HISTORY_H -
+											(double(e.strength) / 100.) *
+													(double(e.mass) / double(maxMass) * HISTORY_H));
+							historyStrength.emplace_back(strengthPoint);
+						}
+						historyStrength.emplace_back(HISTORY_X + HISTORY_W,
+																				 HISTORY_Y + HISTORY_H);
+						historyStrengthPolygon = Polygon(historyStrength);
 					} else if(json[U"method"] == U"update") {
 						lastUpdate = json[U"args"];
 						lastUpdate[U"timestamp"] = frame;
@@ -238,6 +301,9 @@ int update() {
 					lastMyUpdate[U"strength"] = 0;
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.1");
 
 			if(spectateMode == OFF) {
 				// send input
@@ -269,6 +335,19 @@ int update() {
 
 					// 0&&printf("time: %lld", std::time(nullptr));
 				}
+
+				// update history
+				if(lastMyUpdate.hasElement(U"strength") &&
+					 history.back().frame + HISTORY_MIN_INTERVAL < frame &&
+					 HISTORY_W * (frame - history.back().frame) / (frame - joinedFrame) >=
+							 HISTORY_MIN_APPEND_W) {
+					// printf("emplace_back");
+					// printf("%lld %d %d", frame, lastMyUpdate[U"strength"].get<int>(),
+					// 			 lastMyUpdate[U"damage"].get<int>());
+					history.emplace_back(
+							HistoryRecord(frame, int(lastMyUpdate[U"mass"].get<double>()),
+														lastMyUpdate[U"strength"].get<int>()));
+				}
 			} else {
 				if(spectateMode == PLAYER) {
 					if(KeyShift.down()) {
@@ -276,17 +355,21 @@ int update() {
 						id = U"";
 					}
 				}
-				if(KeyEnter.down()) {
-					JSON json, input;
-					input[U"name"] = name.text;
-					json[U"method"] = U"join";
-					json[U"Args"] = input;
-					ws->SendText(json.formatUTF8Minimum());
-					state = PLAYING;
-					name.active = false;
-					spectateMode = OFF;
+				if(resultShowing && KeyEnter.down()) {
+					join();
+				}
+
+				if(resultShowing && KeyT.down()) {
+					String url = TWEET_URL(maxMass);
+					openLink(url.narrow().c_str());
+				}
+				if(KeyEscape.down()) {
+					resultShowing = !resultShowing;
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.2");
 
 			// update users' data
 			leaderBoard.clear();
@@ -307,6 +390,8 @@ int update() {
 					}
 
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						maxMass = std::max(maxMass, int(mass));
+						bestRank = std::min(bestRank, i + 1);
 						if(mass < 1) {
 							0 && printf("0.1\n");
 						}
@@ -325,6 +410,9 @@ int update() {
 					}
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.3");
 
 			if(spectateMode == MAP) {
 				0 && printf("00");
@@ -345,29 +433,37 @@ int update() {
 				}
 				oY += oVY;
 				oX += oVX;
-
-				0 && printf("11\n");
+			}
+			if(spectateMode == MAP || spectateMode == PLAYER) {
 				// start spectating user clicked
 				if(MouseL.down()) {
 					Vec2 p = Cursor::Pos() / scaling + Vec2(oX, oY);
+					int startedSpectating = 0;
 					for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
 						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
 						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
 										 lastUpdate[U"users"][i][U"y"].get<double>());
-						printf("len: %f, radius: %f", (p - pos).length(), radius);
 						if((p - pos).length() < radius) {
 							spectateMode = PLAYER;
 							id = lastUpdate[U"users"][i][U"id"].get<String>();
+							startedSpectating = 1;
+							chatMessages.emplace_back(
+									U"spectating {}"_fmt(
+											lastUpdate[U"users"][i][U"name"].get<String>()),
+									frame);
+							chatMessages.emplace_back(U"shift to dismount", frame);
+
 							break;
 						}
 					}
+					if(!startedSpectating) {
+						spectateMode = MAP;
+						id = U"";
+					}
 				}
-				0 && printf("22\n");
 			}
-
-			break;
-		}
-		case DEAD: {
+			if(debugLevel > 5)
+				printf("update.1");
 			break;
 		}
 
@@ -635,18 +731,22 @@ void draw() {
 
 			{
 				// draw leaderboard
+
+				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X + 1, 10, shadowColor);
+				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X, 10, textColor2);
+
 				for(int i = 0; i < leaderBoard.size(); ++i) {
 					auto e = leaderBoard[i];
 					if(e.id == myId) {
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 10 + i * 20, textColor2);
+								.draw(LEADERBOARD_X, 30 + i * 20, textColor2);
 					} else {
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 10 + i * 20, textColor1);
+								.draw(LEADERBOARD_X, 30 + i * 20, textColor1);
 					}
 				}
 			}
@@ -675,9 +775,26 @@ void draw() {
 					}
 				}
 			}
-			break;
-		}
-		case DEAD: {
+
+			{
+				if(resultShowing) {
+					// draw result
+					resultImage->draw(0, 0);
+					Rect(HISTORY_X, HISTORY_Y, HISTORY_W, HISTORY_H)
+							.drawFrame(0, 1, shadowColor);
+
+					historyStrengthPolygon.draw(paintColor1);
+					historyMassLine.draw(2, textColor2);
+
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8))
+							.draw(90 + 1, 84, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor2);
+					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
+							.draw(90 + 1, 119, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
+							.draw(90, 119, textColor2);
+				}
+			}
 			break;
 		}
 		default: {
