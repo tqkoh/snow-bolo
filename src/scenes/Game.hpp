@@ -67,11 +67,16 @@ public:
 	int y = 0, x = 0;
 	int damage = 0;
 	mutable int frame = 0;
-	damageAnimation(int y, int x, int damage, int frame, String id)
-			: y(y), x(x), damage(damage), frame(frame), id(id) {}
+	bool finish = false;
+	damageAnimation(int y, int x, int damage, int frame, String id, bool finish)
+			: y(y), x(x), damage(damage), frame(frame), id(id), finish(finish) {}
 	int drawDamage(int oY, int oX) const {
 		--frame;
-		(*fontSmall)(damage).drawAt(x - oX, y - oY + 5, damageColor);
+		if(finish) {
+			(*fontMedium)(damage).drawAt(x - oX, y - oY + 5, damageColor);
+		} else {
+			(*fontSmall)(damage).drawAt(x - oX, y - oY + 5, damageColor);
+		}
 		return frame <= 0;
 	}
 };
@@ -541,8 +546,6 @@ void draw() {
 				auto bullets = lastUpdate[U"bullets"];
 				auto feeds = lastUpdate[U"feeds"];
 
-				if(spectateMode == MAP)
-					0 && printf("44\n");
 				// draw users
 
 				auto uArray = users.arrayView();
@@ -565,62 +568,57 @@ void draw() {
 					int uDx = user[U"dx"].get<int>();
 					int uLeftClickLength = user[U"leftClickLength"].get<int>();
 					int uDamage = user[U"damage"].get<int>();
+					bool uDummy = user[U"dummy"].get<bool>();
 
-					if(spectateMode == MAP)
-						0 && printf("44.0.1\n");
-					// draw ball
-					int radius = user[U"radius"].get<double>();
-					Circle(uX - oX, uY - oY, radius)
-							.draw(ballColor)
-							.drawFrame(0, 1, textColor1);
-					if(user[U"damage"].get<int>() < 0) {
-						Triangle(uX - oX, uY - oY + radius + 5, 5, 0).draw(recoverColor);
-						Triangle(uX - oX - radius - 5, uY - oY, 5, Math::Pi * 1 / 2)
-								.draw(recoverColor);
-						Triangle(uX - oX, uY - oY - radius - 5, 5, Math::Pi * 2 / 2)
-								.draw(recoverColor);
-						Triangle(uX - oX + radius + 5, uY - oY, 5, Math::Pi * 3 / 2)
-								.draw(recoverColor);
-					}
-
-					if(spectateMode == MAP)
-						0 && printf("44.0.2\n");
-					// draw triangle looking at users cursor
-					if(uLeftClickLength) {
-						if(uId == id) {
-							uDy = Cursor::Pos().y / scaling - center.y;
-							uDx = Cursor::Pos().x / scaling - center.x;
+					if(!uDummy) {
+						// draw ball
+						int radius = user[U"radius"].get<double>();
+						Circle(uX - oX, uY - oY, radius)
+								.draw(ballColor)
+								.drawFrame(0, 1, textColor1);
+						if(user[U"damage"].get<int>() < 0) {
+							Triangle(uX - oX, uY - oY + radius + 5, 5, 0).draw(recoverColor);
+							Triangle(uX - oX - radius - 5, uY - oY, 5, Math::Pi * 1 / 2)
+									.draw(recoverColor);
+							Triangle(uX - oX, uY - oY - radius - 5, 5, Math::Pi * 2 / 2)
+									.draw(recoverColor);
+							Triangle(uX - oX + radius + 5, uY - oY, 5, Math::Pi * 3 / 2)
+									.draw(recoverColor);
 						}
 
-						radius += 5 + uLeftClickLength / 20;
-						double l = std::sqrt(uDx * uDx + uDy * uDy);
-						if(!l) {
-							l = nextafter(0, 1);
+						// draw triangle looking at users cursor
+						if(uLeftClickLength) {
+							if(uId == id) {
+								uDy = Cursor::Pos().y / scaling - center.y;
+								uDx = Cursor::Pos().x / scaling - center.x;
+							}
+
+							radius += 5 + uLeftClickLength / 20;
+							double l = std::sqrt(uDx * uDx + uDy * uDy);
+							if(!l) {
+								l = nextafter(0, 1);
+							}
+							double dy = uDy / l, dx = uDx / l;
+							if(!dx)
+								dx = nextafter(dx, DBL_MAX);
+							double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
+							Triangle(x, y, 5 + uLeftClickLength / 10,
+											 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
+									.draw(textColor2);
 						}
-						double dy = uDy / l, dx = uDx / l;
-						if(!dx)
-							dx = nextafter(dx, DBL_MAX);
-						double y = uY - oY + dy * radius, x = uX - oX + dx * radius;
-						Triangle(x, y, 5 + uLeftClickLength / 10,
-										 std::atan(dy / dx) + (dx < 0) * Math::Pi + Math::Pi / 2.)
-								.draw(textColor2);
-					}
 
-					if(spectateMode == MAP)
-						0 && printf("44.0.3\n");
-					// draw name
-					(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
+						// draw name
+						(*fontSmall)(uName).drawAt(Vec2(uX - oX, uY - oY), textColor2);
+					}	 // if !uDummy
 
-					if(uDamage > 0 && uId != id) {
+					if(uDamage > 0) {
 						damageAnimations.insert(
 								damageAnimation(uY, uX, user[U"damage"].get<int>(),
-																ANIMATION_DAMAGE_LENGTH, uId));
-						user[U"damage"] = 0;
+																ANIMATION_DAMAGE_LENGTH, uId, uDummy));
+						if(uId != id)
+							user[U"damage"] = 0;
 					}
 				}
-
-				if(spectateMode == MAP)
-					0 && printf("44.1\n");
 
 				for(const auto& e : bullets.arrayView()) {
 					int bY = e[U"y"].get<double>() +
