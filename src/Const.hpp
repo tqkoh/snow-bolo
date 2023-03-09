@@ -54,7 +54,7 @@ const ColorF shadowColor(0, .15);
 #define CHAT_REMAIN (60 * 5)
 #define LEADERBOARD_X 280
 
-#define HISTORY_MIN_INTERVAL (60 * 1)
+#define HISTORY_MIN_INTERVAL 30
 #define HISTORY_MIN_APPEND_W 2
 #define HISTORY_Y 62
 #define HISTORY_X 150

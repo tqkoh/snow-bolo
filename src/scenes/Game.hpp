@@ -286,6 +286,11 @@ int update() {
 													(double(e.mass) / double(maxMass) * HISTORY_H));
 							historyStrength.emplace_back(strengthPoint);
 						}
+						historyMassLine.emplace_back(
+								HISTORY_X + HISTORY_W,
+								HISTORY_Y + HISTORY_H -
+										double(lastMyUpdate[U"mass"].get<int>()) / double(maxMass) *
+												HISTORY_H);
 						historyStrength.emplace_back(HISTORY_X + HISTORY_W,
 																				 HISTORY_Y + HISTORY_H);
 						historyStrengthPolygon = Polygon(historyStrength);
