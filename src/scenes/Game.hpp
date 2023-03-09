@@ -13,7 +13,7 @@ namespace Game {
 
 std::unique_ptr<WebSocket> ws;
 
-bool windowVisible = false;
+bool windowVisible = true;
 
 enum GameState {
 	PREPARE,
@@ -150,6 +150,7 @@ std::vector<Vec2> historyStrength;
 Polygon historyStrengthPolygon;
 int64_t joinedFrame = 0;
 int64_t deadFrame = 998244353;
+int kills = 0;
 
 void load() {
 	fontSmall =
@@ -261,6 +262,7 @@ int update() {
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
+						kills = json[U"args"][U"kills"].get<int>();
 						resultShowing = true;
 						spectateMode = MAP;
 						deadFrame = frame;
@@ -792,11 +794,14 @@ void draw() {
 
 					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8))
 							.draw(90 + 1, 84, shadowColor);
-					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor2);
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor1);
 					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
 							.draw(90 + 1, 119, shadowColor);
 					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
-							.draw(90, 119, textColor2);
+							.draw(90, 119, textColor1);
+					(*fontSmall)(shorten(U"{}"_fmt(kills), 8))
+							.draw(90 + 1, 152, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(kills), 8)).draw(90, 152, textColor1);
 				}
 			}
 			break;
