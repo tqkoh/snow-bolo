@@ -134,6 +134,16 @@ double radiusFromMass(double mass) {
 
 std::map<std::string, bool> keys;
 
+struct HistoryRecord {
+	int frame, mass, strength;
+	HistoryRecord(int frame, int mass, int strength)
+			: frame(frame), mass(mass), strength(strength) {}
+};
+std::vector<HistoryRecord> history;
+LineString historyMassLine;
+int64_t joinedFrame = 0;
+int64_t deadFrame = 998244353;
+
 void load() {
 	fontSmall =
 			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
@@ -174,6 +184,20 @@ void init() {
 
 	themeAudio->play();
 }
+void join() {
+	JSON json, input;
+	input[U"name"] = name.text;
+	json[U"method"] = U"join";
+	json[U"Args"] = input;
+	ws->SendText(json.formatUTF8Minimum());
+	state = PLAYING;
+	name.active = false;
+	spectateMode = OFF;
+	resultShowing = false;
+	history.clear();
+	history.emplace_back(frame, 1, 100);
+	deadFrame = 998244353;
+}
 int update() {
 	if(ws->disconnected) {
 		Console << U"disconnected from server";
@@ -193,15 +217,7 @@ int update() {
 			name.active = true;
 
 			if(KeyEnter.down()) {
-				JSON json, input;
-				input[U"name"] = name.text;
-				json[U"method"] = U"join";
-				json[U"Args"] = input;
-				ws->SendText(json.formatUTF8Minimum());
-				state = PLAYING;
-				name.active = false;
-				spectateMode = OFF;
-				resultShowing = false;
+				join();
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
 
@@ -232,11 +248,33 @@ int update() {
 					if(json[U"method"] == U"joinAccepted") {
 						myId = json[U"args"][U"id"].get<String>();
 						id = myId;
+						joinedFrame = frame;
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
 						resultShowing = true;
 						spectateMode = MAP;
+						deadFrame = frame;
+
+						int aliveLength = deadFrame - joinedFrame;
+
+						historyMassLine.clear();
+						for(auto e : history) {
+							Vec2 v(
+									HISTORY_X + (e.frame - joinedFrame) * HISTORY_W / aliveLength,
+									HISTORY_Y +
+											(1. - double(e.mass) / double(maxMass)) * HISTORY_H);
+							historyMassLine.emplace_back(v);
+
+							// printf(
+							// 		"e.frame: %d, joinedFrame: %lld, aliveLength: %d, e.mass: "
+							// 		"%d, masMass: "
+							// 		"%d, "
+							// 		"v.y: %d, "
+							// 		"v.x: %d\n",
+							// 		e.frame, joinedFrame, aliveLength, e.mass, maxMass,
+							// int(v.y), 		int(v.x));
+						}
 					} else if(json[U"method"] == U"update") {
 						lastUpdate = json[U"args"];
 						lastUpdate[U"timestamp"] = frame;
@@ -287,6 +325,19 @@ int update() {
 
 					// 0&&printf("time: %lld", std::time(nullptr));
 				}
+
+				// update history
+				if(lastMyUpdate.hasElement(U"strength") &&
+					 history.back().frame + HISTORY_MIN_INTERVAL < frame &&
+					 HISTORY_W * (frame - history.back().frame) / (frame - joinedFrame) >=
+							 HISTORY_MIN_APPEND_W) {
+					// printf("emplace_back");
+					// printf("%lld %d %d", frame, lastMyUpdate[U"strength"].get<int>(),
+					// 			 lastMyUpdate[U"damage"].get<int>());
+					history.emplace_back(
+							HistoryRecord(frame, int(lastMyUpdate[U"mass"].get<double>()),
+														lastMyUpdate[U"strength"].get<int>()));
+				}
 			} else {
 				if(spectateMode == PLAYER) {
 					if(KeyShift.down()) {
@@ -295,16 +346,9 @@ int update() {
 					}
 				}
 				if(resultShowing && KeyEnter.down()) {
-					JSON json, input;
-					input[U"name"] = name.text;
-					json[U"method"] = U"join";
-					json[U"Args"] = input;
-					ws->SendText(json.formatUTF8Minimum());
-					state = PLAYING;
-					name.active = false;
-					spectateMode = OFF;
-					resultShowing = false;
+					join();
 				}
+
 				if(resultShowing && KeyT.down()) {
 					String url = TWEET_URL(maxMass);
 					openLink(url.narrow().c_str());
@@ -389,15 +433,15 @@ int update() {
 						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
 						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
 										 lastUpdate[U"users"][i][U"y"].get<double>());
-						printf("len: %f, radius: %f", (p - pos).length(), radius);
 						if((p - pos).length() < radius) {
 							spectateMode = PLAYER;
 							id = lastUpdate[U"users"][i][U"id"].get<String>();
 							startedSpectating = 1;
 							chatMessages.emplace_back(
-									"(start spectating {})"_fmt(
+									U"spectating {}"_fmt(
 											lastUpdate[U"users"][i][U"name"].get<String>()),
 									frame);
+							chatMessages.emplace_back(U"shift to dismount", frame);
 
 							break;
 						}
@@ -677,18 +721,22 @@ void draw() {
 
 			{
 				// draw leaderboard
+
+				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X + 1, 10, shadowColor);
+				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X, 10, textColor2);
+
 				for(int i = 0; i < leaderBoard.size(); ++i) {
 					auto e = leaderBoard[i];
 					if(e.id == myId) {
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 10 + i * 20, textColor2);
+								.draw(LEADERBOARD_X, 30 + i * 20, textColor2);
 					} else {
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 10 + i * 20, shadowColor);
+								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
 						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 10 + i * 20, textColor1);
+								.draw(LEADERBOARD_X, 30 + i * 20, textColor1);
 					}
 				}
 			}
@@ -724,6 +772,8 @@ void draw() {
 					resultImage->draw(0, 0);
 					Rect(HISTORY_X, HISTORY_Y, HISTORY_W, HISTORY_H)
 							.drawFrame(0, 1, shadowColor);
+
+					historyMassLine.draw(2, textColor2);
 				}
 			}
 			break;
