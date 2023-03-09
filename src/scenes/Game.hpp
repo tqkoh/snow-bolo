@@ -13,6 +13,8 @@ namespace Game {
 
 std::unique_ptr<WebSocket> ws;
 
+bool windowVisible = false;
+
 enum GameState {
 	PREPARE,
 	PLAYING,
@@ -307,33 +309,35 @@ int update() {
 
 			if(spectateMode == OFF) {
 				// send input
-				JSON json, input;
-				auto p = Cursor::Pos() / scaling;
-				input[U"W"] = keys["W"];
-				input[U"A"] = keys["A"];
-				input[U"S"] = keys["S"];
-				input[U"D"] = keys["D"];
-				input[U"left"] = MouseL.pressed();
-				input[U"right"] = MouseR.pressed();
-				input[U"dy"] = p.y - center.y;
-				input[U"dx"] = p.x - center.x;
+				if(windowVisible) {
+					JSON json, input;
+					auto p = Cursor::Pos() / scaling;
+					input[U"W"] = keys["W"];
+					input[U"A"] = keys["A"];
+					input[U"S"] = keys["S"];
+					input[U"D"] = keys["D"];
+					input[U"left"] = MouseL.pressed();
+					input[U"right"] = MouseR.pressed();
+					input[U"dy"] = p.y - center.y;
+					input[U"dx"] = p.x - center.x;
 
-				json[U"method"] = U"input";
-				json[U"args"] = input;
+					json[U"method"] = U"input";
+					json[U"args"] = input;
 
-				// look at the md #2
-				if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
-					 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
-					 keys["W"] != previnput[U"W"].get<bool>() ||
-					 keys["A"] != previnput[U"A"].get<bool>() ||
-					 keys["S"] != previnput[U"S"].get<bool>() ||
-					 keys["D"] != previnput[U"D"].get<bool>() ||
-					 MouseL.pressed() != previnput[U"left"].get<bool>() ||
-					 MouseR.pressed() != previnput[U"right"].get<bool>()) {
-					ws->SendText(json.formatUTF8Minimum());
-					previnput = input;
+					// look at the md #2
+					if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
+						 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
+						 keys["W"] != previnput[U"W"].get<bool>() ||
+						 keys["A"] != previnput[U"A"].get<bool>() ||
+						 keys["S"] != previnput[U"S"].get<bool>() ||
+						 keys["D"] != previnput[U"D"].get<bool>() ||
+						 MouseL.pressed() != previnput[U"left"].get<bool>() ||
+						 MouseR.pressed() != previnput[U"right"].get<bool>()) {
+						ws->SendText(json.formatUTF8Minimum());
+						previnput = input;
 
-					// 0&&printf("time: %lld", std::time(nullptr));
+						// 0&&printf("time: %lld", std::time(nullptr));
+					}
 				}
 
 				// update history
