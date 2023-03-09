@@ -7,6 +7,8 @@
 
 #define MOD(n, m) (((n) % (m) + (m)) % (m))
 
+EM_JS(void, openLink, (const char* url), {window.open(UTF8ToString(url))});
+
 namespace Game {
 
 std::unique_ptr<WebSocket> ws;
@@ -14,10 +16,11 @@ std::unique_ptr<WebSocket> ws;
 enum GameState {
 	PREPARE,
 	PLAYING,
-	DEAD,
 
 	GameState_NUM
 } state = PREPARE;
+
+int debugLevel = 0;
 
 // WebSocket ws(API_URL);
 TextEditState name;
@@ -33,6 +36,7 @@ std::unique_ptr<Texture> ballImage;
 std::unique_ptr<Texture> prepareImage;
 std::unique_ptr<Texture> katasaDekasaImage;
 std::unique_ptr<Texture> miniMapImage;
+std::unique_ptr<Texture> resultImage;
 std::unique_ptr<Audio> themeAudio;
 
 JSON lastUpdate;
@@ -112,6 +116,10 @@ struct leaderBoardRow {
 
 std::vector<leaderBoardRow> leaderBoard;
 
+bool resultShowing = false;
+int maxMass = 0;
+int bestRank = 998244353;
+
 double radiusFromMass(double mass) {
 	if(mass <= 0)
 		return 1;
@@ -139,6 +147,7 @@ void load() {
 	katasaDekasaImage =
 			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
 	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
+	resultImage = std::make_unique<Texture>(U"assets/images/result.png");
 
 	themeAudio =
 			std::make_unique<Audio>(U"assets/sounds/snowball_theme.mp3",
@@ -191,13 +200,18 @@ int update() {
 				ws->SendText(json.formatUTF8Minimum());
 				state = PLAYING;
 				name.active = false;
+				spectateMode = OFF;
+				resultShowing = false;
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}
 
 			break;
 		}
 		case PLAYING: {
+			if(debugLevel > 5)
+				printf("update.0");
 			String received;
+			// process received data
 			{
 				int dead = 0;
 				while(ws->hasReceivedText()) {
@@ -221,6 +235,7 @@ int update() {
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
+						resultShowing = true;
 						spectateMode = MAP;
 					} else if(json[U"method"] == U"update") {
 						lastUpdate = json[U"args"];
@@ -238,6 +253,9 @@ int update() {
 					lastMyUpdate[U"strength"] = 0;
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.1");
 
 			if(spectateMode == OFF) {
 				// send input
@@ -276,7 +294,7 @@ int update() {
 						id = U"";
 					}
 				}
-				if(KeyEnter.down()) {
+				if(resultShowing && KeyEnter.down()) {
 					JSON json, input;
 					input[U"name"] = name.text;
 					json[U"method"] = U"join";
@@ -285,8 +303,19 @@ int update() {
 					state = PLAYING;
 					name.active = false;
 					spectateMode = OFF;
+					resultShowing = false;
+				}
+				if(resultShowing && KeyT.down()) {
+					String url = TWEET_URL(maxMass);
+					openLink(url.narrow().c_str());
+				}
+				if(KeyEscape.down()) {
+					resultShowing = !resultShowing;
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.2");
 
 			// update users' data
 			leaderBoard.clear();
@@ -307,6 +336,8 @@ int update() {
 					}
 
 					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+						maxMass = std::max(maxMass, int(mass));
+						bestRank = std::min(bestRank, i + 1);
 						if(mass < 1) {
 							0 && printf("0.1\n");
 						}
@@ -325,6 +356,9 @@ int update() {
 					}
 				}
 			}
+
+			if(debugLevel > 5)
+				printf("update.3");
 
 			if(spectateMode == MAP) {
 				0 && printf("00");
@@ -345,11 +379,12 @@ int update() {
 				}
 				oY += oVY;
 				oX += oVX;
-
-				0 && printf("11\n");
+			}
+			if(spectateMode == MAP || spectateMode == PLAYER) {
 				// start spectating user clicked
 				if(MouseL.down()) {
 					Vec2 p = Cursor::Pos() / scaling + Vec2(oX, oY);
+					int startedSpectating = 0;
 					for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
 						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
 						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
@@ -358,16 +393,23 @@ int update() {
 						if((p - pos).length() < radius) {
 							spectateMode = PLAYER;
 							id = lastUpdate[U"users"][i][U"id"].get<String>();
+							startedSpectating = 1;
+							chatMessages.emplace_back(
+									"(start spectating {})"_fmt(
+											lastUpdate[U"users"][i][U"name"].get<String>()),
+									frame);
+
 							break;
 						}
 					}
+					if(!startedSpectating) {
+						spectateMode = MAP;
+						id = U"";
+					}
 				}
-				0 && printf("22\n");
 			}
-
-			break;
-		}
-		case DEAD: {
+			if(debugLevel > 5)
+				printf("update.1");
 			break;
 		}
 
@@ -675,9 +717,15 @@ void draw() {
 					}
 				}
 			}
-			break;
-		}
-		case DEAD: {
+
+			{
+				if(resultShowing) {
+					// draw result
+					resultImage->draw(0, 0);
+					Rect(HISTORY_X, HISTORY_Y, HISTORY_W, HISTORY_H)
+							.drawFrame(0, 1, shadowColor);
+				}
+			}
 			break;
 		}
 		default: {
