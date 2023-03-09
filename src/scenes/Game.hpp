@@ -95,15 +95,18 @@ struct chatMessage {
 
 std::deque<chatMessage> chatMessages;
 
+String shorten(String str, int l) {
+	if(str.size() > l) {
+		return str.substr(0, l - 2) + U"..";
+	}
+	return String(l - str.size(), U' ') + str;
+}
 struct leaderBoardRow {
 	String id;
 	String name;
 	String massString;
 	leaderBoardRow(String id, String name, int mass) : id(id) {
-		if(name.size() > 8)
-			this->name = name.substr(0, 6) + U"..";
-		else
-			this->name = String(8 - name.size(), U' ') + name;
+		this->name = shorten(name, 8);
 		if(mass < 1000)
 			massString = ToString(mass);
 		else if(mass < 1000000)
@@ -141,6 +144,8 @@ struct HistoryRecord {
 };
 std::vector<HistoryRecord> history;
 LineString historyMassLine;
+std::vector<Vec2> historyStrength;
+Polygon historyStrengthPolygon;
 int64_t joinedFrame = 0;
 int64_t deadFrame = 998244353;
 
@@ -196,7 +201,10 @@ void join() {
 	resultShowing = false;
 	history.clear();
 	history.emplace_back(frame, 1, 100);
+	joinedFrame = frame;
 	deadFrame = 998244353;
+	maxMass = 0;
+	bestRank = 998244353;
 }
 int update() {
 	if(ws->disconnected) {
@@ -248,7 +256,6 @@ int update() {
 					if(json[U"method"] == U"joinAccepted") {
 						myId = json[U"args"][U"id"].get<String>();
 						id = myId;
-						joinedFrame = frame;
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
@@ -259,22 +266,25 @@ int update() {
 						int aliveLength = deadFrame - joinedFrame;
 
 						historyMassLine.clear();
+						historyStrength.clear();
+						historyStrength.emplace_back(HISTORY_X, HISTORY_Y + HISTORY_H);
 						for(auto e : history) {
-							Vec2 v(
+							Vec2 massPoint(
 									HISTORY_X + (e.frame - joinedFrame) * HISTORY_W / aliveLength,
 									HISTORY_Y +
 											(1. - double(e.mass) / double(maxMass)) * HISTORY_H);
-							historyMassLine.emplace_back(v);
+							historyMassLine.emplace_back(massPoint);
 
-							// printf(
-							// 		"e.frame: %d, joinedFrame: %lld, aliveLength: %d, e.mass: "
-							// 		"%d, masMass: "
-							// 		"%d, "
-							// 		"v.y: %d, "
-							// 		"v.x: %d\n",
-							// 		e.frame, joinedFrame, aliveLength, e.mass, maxMass,
-							// int(v.y), 		int(v.x));
+							Vec2 strengthPoint(
+									HISTORY_X + (e.frame - joinedFrame) * HISTORY_W / aliveLength,
+									HISTORY_Y + HISTORY_H -
+											(double(e.strength) / 100.) *
+													(double(e.mass) / double(maxMass) * HISTORY_H));
+							historyStrength.emplace_back(strengthPoint);
 						}
+						historyStrength.emplace_back(HISTORY_X + HISTORY_W,
+																				 HISTORY_Y + HISTORY_H);
+						historyStrengthPolygon = Polygon(historyStrength);
 					} else if(json[U"method"] == U"update") {
 						lastUpdate = json[U"args"];
 						lastUpdate[U"timestamp"] = frame;
@@ -773,7 +783,16 @@ void draw() {
 					Rect(HISTORY_X, HISTORY_Y, HISTORY_W, HISTORY_H)
 							.drawFrame(0, 1, shadowColor);
 
+					historyStrengthPolygon.draw(paintColor1);
 					historyMassLine.draw(2, textColor2);
+
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8))
+							.draw(90 + 1, 84, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor2);
+					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
+							.draw(90 + 1, 119, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
+							.draw(90, 119, textColor2);
 				}
 			}
 			break;
