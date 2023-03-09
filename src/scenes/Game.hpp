@@ -13,6 +13,8 @@ namespace Game {
 
 std::unique_ptr<WebSocket> ws;
 
+bool windowVisible = true;
+
 enum GameState {
 	PREPARE,
 	PLAYING,
@@ -148,6 +150,7 @@ std::vector<Vec2> historyStrength;
 Polygon historyStrengthPolygon;
 int64_t joinedFrame = 0;
 int64_t deadFrame = 998244353;
+int kills = 0;
 
 void load() {
 	fontSmall =
@@ -259,6 +262,7 @@ int update() {
 						spectateMode = OFF;
 					} else if(json[U"method"] == U"dead") {
 						dead = lastMyUpdate[U"strength"].get<int>();
+						kills = json[U"args"][U"kills"].get<int>();
 						resultShowing = true;
 						spectateMode = MAP;
 						deadFrame = frame;
@@ -307,33 +311,35 @@ int update() {
 
 			if(spectateMode == OFF) {
 				// send input
-				JSON json, input;
-				auto p = Cursor::Pos() / scaling;
-				input[U"W"] = keys["W"];
-				input[U"A"] = keys["A"];
-				input[U"S"] = keys["S"];
-				input[U"D"] = keys["D"];
-				input[U"left"] = MouseL.pressed();
-				input[U"right"] = MouseR.pressed();
-				input[U"dy"] = p.y - center.y;
-				input[U"dx"] = p.x - center.x;
+				if(windowVisible) {
+					JSON json, input;
+					auto p = Cursor::Pos() / scaling;
+					input[U"W"] = keys["W"];
+					input[U"A"] = keys["A"];
+					input[U"S"] = keys["S"];
+					input[U"D"] = keys["D"];
+					input[U"left"] = MouseL.pressed();
+					input[U"right"] = MouseR.pressed();
+					input[U"dy"] = p.y - center.y;
+					input[U"dx"] = p.x - center.x;
 
-				json[U"method"] = U"input";
-				json[U"args"] = input;
+					json[U"method"] = U"input";
+					json[U"args"] = input;
 
-				// look at the md #2
-				if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
-					 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
-					 keys["W"] != previnput[U"W"].get<bool>() ||
-					 keys["A"] != previnput[U"A"].get<bool>() ||
-					 keys["S"] != previnput[U"S"].get<bool>() ||
-					 keys["D"] != previnput[U"D"].get<bool>() ||
-					 MouseL.pressed() != previnput[U"left"].get<bool>() ||
-					 MouseR.pressed() != previnput[U"right"].get<bool>()) {
-					ws->SendText(json.formatUTF8Minimum());
-					previnput = input;
+					// look at the md #2
+					if(MouseL.pressed() && frame % SEND_INPUT_PER == 0 ||
+						 MouseR.pressed() && frame % SEND_INPUT_PER == 0 ||
+						 keys["W"] != previnput[U"W"].get<bool>() ||
+						 keys["A"] != previnput[U"A"].get<bool>() ||
+						 keys["S"] != previnput[U"S"].get<bool>() ||
+						 keys["D"] != previnput[U"D"].get<bool>() ||
+						 MouseL.pressed() != previnput[U"left"].get<bool>() ||
+						 MouseR.pressed() != previnput[U"right"].get<bool>()) {
+						ws->SendText(json.formatUTF8Minimum());
+						previnput = input;
 
-					// 0&&printf("time: %lld", std::time(nullptr));
+						// 0&&printf("time: %lld", std::time(nullptr));
+					}
 				}
 
 				// update history
@@ -788,11 +794,14 @@ void draw() {
 
 					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8))
 							.draw(90 + 1, 84, shadowColor);
-					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor2);
+					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor1);
 					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
 							.draw(90 + 1, 119, shadowColor);
 					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
-							.draw(90, 119, textColor2);
+							.draw(90, 119, textColor1);
+					(*fontSmall)(shorten(U"{}"_fmt(kills), 8))
+							.draw(90 + 1, 152, shadowColor);
+					(*fontSmall)(shorten(U"{}"_fmt(kills), 8)).draw(90, 152, textColor1);
 				}
 			}
 			break;

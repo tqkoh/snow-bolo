@@ -2,23 +2,49 @@
 // #include "scenes/Game.hpp"
 // #include "scenes/Title.hpp"
 
-enum MainState {
-	TITLE,
-	GAME,
-
-	MainState_NUM
-};
-
 #include <Siv3D.hpp>
 #include "Global.hpp"
 #include "lib/WebSocket.hpp"
 #include "scenes/Game.hpp"
 #include "scenes/Title.hpp"
 
+enum MainState {
+	TITLE,
+	GAME,
+
+	MainState_NUM
+} state = TITLE;
+
 EM_JS(int, GetCanvasWidth, (), { return canvas.width; });
 EM_JS(int, GetCanvasHeight, (), { return canvas.height; });
+EM_BOOL visibility_callback(int eventType,
+														const EmscriptenVisibilityChangeEvent* e,
+														void* userData) {
+	if(eventType == EMSCRIPTEN_EVENT_VISIBILITYCHANGE) {
+		if(!state)
+			return 0;
+		if(e->hidden) {
+			Game::windowVisible = 0;
+			JSON json, args;
+			args[U"active"] = false;
+			json[U"method"] = U"active";
+			json[U"args"] = args;
+			Game::ws->SendText(json.formatUTF8Minimum());
+		} else {
+			Game::windowVisible = 1;
+			JSON json, args;
+			args[U"active"] = true;
+			json[U"method"] = U"active";
+			json[U"args"] = args;
+			Game::ws->SendText(json.formatUTF8Minimum());
+		}
+	}
+	return 0;
+}
 
 void Main() {
+	emscripten_set_visibilitychange_callback(0, 1, visibility_callback);
+
 	System::SetTerminationTriggers(UserAction::CloseButtonClicked);
 
 	Scene::SetTextureFilter(TextureFilter::Nearest);
@@ -33,7 +59,6 @@ void Main() {
 
 	Window::SetTitle(U"snow-bolo");
 
-	MainState state = TITLE;	// TITLE;
 	Title::init();
 	Game::load();
 
