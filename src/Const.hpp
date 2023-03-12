@@ -61,6 +61,6 @@ const ColorF shadowColor(0, .15);
 #define HISTORY_H (166 - 62)
 #define HISTORY_W (306 - 150)
 
-#define TWEET_URL(maxMass)                                                                                  \
-	U"https://twitter.com/intent/tweet?url=tqk.blue/snow-bolo&text=snow-bolo でデカさ {} を達成したよ！"_fmt( \
+#define TWEET_URL(maxMass)                                                                                           \
+	U"https://twitter.com/intent/tweet?url=https://tqk.blue/snow-bolo/&text=snow-bolo でデカさ {} を達成したよ！"_fmt( \
 			(maxMass))
