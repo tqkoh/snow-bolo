@@ -171,9 +171,10 @@ void load() {
 	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
 	resultImage = std::make_unique<Texture>(U"assets/images/result.png");
 
-	themeAudio =
-			std::make_unique<Audio>(U"assets/sounds/snow-bolo_theme.mp3",
-															Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
+	themeAudio = std::make_unique<Audio>(U"assets/sounds/snow-bolo_theme.mp3",
+																			 Arg::loopBegin = THEME_LOOP_BEGIN,
+																			 Arg::loopEnd = THEME_LOOP_END);
+	// Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
 }
 
 void init() {
@@ -306,7 +307,8 @@ int update() {
 						chatMessages.emplace_back(message, frame);
 					}
 					// } catch(...) {
-					// 	0&&printf("parse failed: %s\n", received.narrow().c_str());
+					// 	0&&printf("parse failed: %s\n",
+					// received.narrow().c_str());
 					// }
 				}
 				if(dead) {
@@ -357,7 +359,8 @@ int update() {
 					 HISTORY_W * (frame - history.back().frame) / (frame - joinedFrame) >=
 							 HISTORY_MIN_APPEND_W) {
 					// printf("emplace_back");
-					// printf("%lld %d %d", frame, lastMyUpdate[U"strength"].get<int>(),
+					// printf("%lld %d %d", frame,
+					// lastMyUpdate[U"strength"].get<int>(),
 					// 			 lastMyUpdate[U"damage"].get<int>());
 					history.emplace_back(
 							HistoryRecord(frame, int(lastMyUpdate[U"mass"].get<double>()),
@@ -375,7 +378,7 @@ int update() {
 				}
 
 				if(resultShowing && KeyT.down()) {
-					String url = TWEET_URL(maxMass);
+					String url = TWEET_URL(maxMass, bestRank, kills);
 					openLink(url.narrow().c_str());
 				}
 				if(KeyEscape.down()) {
@@ -493,7 +496,8 @@ int update() {
 	return 0;
 }
 void draw() {
-	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11, Palette::Green);
+	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11,
+	// Palette::Green);
 	switch(state) {
 		case PREPARE: {
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
