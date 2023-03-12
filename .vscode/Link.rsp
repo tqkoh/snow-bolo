@@ -1,5 +1,6 @@
 -o index.html
 
+
 -LOpenSiv3D/lib 
 -LOpenSiv3D/lib/Siv3D/freetype
 -LOpenSiv3D/lib/Siv3D/giflib
@@ -52,7 +53,7 @@
 --preload-file resources/engine/shader@/resources/engine/shader
 --preload-file resources/engine/texture@/resources/engine/texture
 --preload-file assets@/assets
---shell-file OpenSiv3D/Templates/Embeddable/web-player.html
+--shell-file src/web/index.html
 --pre-js OpenSiv3D/lib/Siv3D/Siv3D.pre.js
 --post-js OpenSiv3D/lib/Siv3D/Siv3D.post.js
 --post-js OpenSiv3D/Templates/Embeddable/web-player.js

@@ -173,7 +173,7 @@ void load() {
 	resultImage = std::make_unique<Texture>(U"assets/images/result.png");
 
 	themeAudio =
-			std::make_unique<Audio>(U"assets/sounds/snowball_theme.mp3",
+			std::make_unique<Audio>(U"assets/sounds/snow-bolo_theme.mp3",
 															Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
 }
 
@@ -232,7 +232,7 @@ int update() {
 		case PREPARE: {
 			name.active = true;
 
-			if(KeyEnter.down()) {
+			if(KeyEnter.down() && name.text != U"") {
 				join();
 				SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12, false);
 			}

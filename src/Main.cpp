@@ -57,8 +57,6 @@ void Main() {
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 
-	Window::SetTitle(U"snow-bolo");
-
 	Title::init();
 	Game::load();
 
