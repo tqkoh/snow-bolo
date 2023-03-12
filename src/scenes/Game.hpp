@@ -66,18 +66,17 @@ public:
 	String id;
 	int y = 0, x = 0;
 	int damage = 0;
-	mutable int frame = 0;
+	int frame = 0;
 	bool finish = false;
 	damageAnimation(int y, int x, int damage, int frame, String id, bool finish)
 			: y(y), x(x), damage(damage), frame(frame), id(id), finish(finish) {}
 	int drawDamage(int oY, int oX) const {
-		--frame;
 		if(finish) {
 			(*fontMedium)(damage).drawAt(x - oX, y - oY + 5, damageColor);
 		} else {
 			(*fontSmall)(damage).drawAt(x - oX, y - oY + 5, damageColor);
 		}
-		return frame <= 0;
+		return ::frame > frame + ANIMATION_DAMAGE_LENGTH;
 	}
 };
 const bool operator<(const damageAnimation& lhs, const damageAnimation& rhs) {
@@ -612,9 +611,8 @@ void draw() {
 					}	 // if !uDummy
 
 					if(uDamage > 0) {
-						damageAnimations.insert(
-								damageAnimation(uY, uX, user[U"damage"].get<int>(),
-																ANIMATION_DAMAGE_LENGTH, uId, uDummy));
+						damageAnimations.insert(damageAnimation(
+								uY, uX, user[U"damage"].get<int>(), frame, uId, uDummy));
 						if(uId != id)
 							user[U"damage"] = 0;
 					}
