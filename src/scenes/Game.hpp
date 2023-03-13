@@ -5,176 +5,21 @@
 #include "../Global.hpp"
 #include "lib/WebSocket.hpp"
 
+#include "game/Assets.hpp"
+#include "game/ChatMessage.hpp"
+#include "game/DamageAnimation.hpp"
+#include "game/History.hpp"
+#include "game/LeaderBoard.hpp"
+#include "game/Other.hpp"
+
 #define MOD(n, m) (((n) % (m) + (m)) % (m))
 
 EM_JS(void, openLink, (const char* url), {window.open(UTF8ToString(url))});
 
 namespace Game {
 
-std::unique_ptr<WebSocket> ws;
-
-bool windowVisible = true;
-
-enum GameState {
-	PREPARE,
-	PLAYING,
-
-	GameState_NUM
-} state = PREPARE;
-
-int debugLevel = 0;
-
-// WebSocket ws(API_URL);
-TextEditState name;
-Point center(resolution / 2);
-
-std::unique_ptr<Font> fontSmall;
-std::unique_ptr<Font> fontMedium;
-std::unique_ptr<Font> fontLarge;
-JSON previnput;
-
-std::unique_ptr<Texture> backImage;
-std::unique_ptr<Texture> ballImage;
-std::unique_ptr<Texture> prepareImage;
-std::unique_ptr<Texture> katasaDekasaImage;
-std::unique_ptr<Texture> miniMapImage;
-std::unique_ptr<Texture> resultImage;
-std::unique_ptr<Audio> themeAudio;
-
-JSON lastUpdate;
-JSON lastMyUpdate;
-
-JSON defaultUpdate;
-
-int damage = 0;
-double damageBarAnimation = 0;
-
-double oY = 0, oX = 0, oVY = 0, oVX = 0;
-String id;
-String myId;
-
-enum SpectateMode {
-	OFF,
-	PLAYER,
-	MAP,
-
-	SpectateMode_NUM
-} spectateMode = OFF;
-
-class damageAnimation {
-public:
-	String id;
-	int y = 0, x = 0;
-	int damage = 0;
-	int frame = 0;
-	bool finish = false;
-	damageAnimation(int y, int x, int damage, int frame, String id, bool finish)
-			: y(y), x(x), damage(damage), frame(frame), id(id), finish(finish) {}
-	int drawDamage(int oY, int oX) const {
-		if(finish) {
-			(*fontMedium)(damage).drawAt(x - oX, y - oY + 5, damageColor);
-		} else {
-			(*fontSmall)(damage).drawAt(x - oX, y - oY + 5, damageColor);
-		}
-		return ::frame > frame + ANIMATION_DAMAGE_LENGTH;
-	}
-};
-const bool operator<(const damageAnimation& lhs, const damageAnimation& rhs) {
-	if(lhs.id == rhs.id) {
-		if(lhs.frame == rhs.frame) {
-			return &lhs < &rhs;
-		}
-		return lhs.frame < rhs.frame;
-	}
-
-	return lhs.id < rhs.id;
-}
-
-std::set<damageAnimation> damageAnimations;
-
-struct chatMessage {
-	String message;
-	int timestamp;
-	chatMessage(String message, int timestamp)
-			: message(message), timestamp(timestamp) {}
-};
-
-std::deque<chatMessage> chatMessages;
-
-String shorten(String str, int l) {
-	if(str.size() > l) {
-		return str.substr(0, l - 2) + U"..";
-	}
-	return String(l - str.size(), U' ') + str;
-}
-struct leaderBoardRow {
-	String id;
-	String name;
-	String massString;
-	leaderBoardRow(String id, String name, int mass) : id(id) {
-		this->name = shorten(name, 8);
-		if(mass < 1000)
-			massString = ToString(mass);
-		else if(mass < 1000000)
-			massString = ToString(mass / 1000) + U"K";
-		else {
-			massString = ToString(mass / 1000000) + U"M";
-		}
-	}
-};
-
-std::vector<leaderBoardRow> leaderBoard;
-
-bool resultShowing = false;
-int maxMass = 0;
-int bestRank = 998244353;
-
-double radiusFromMass(double mass) {
-	if(mass <= 0)
-		return 1;
-	double r6 = std::sqrt(6);
-	if(mass > 2000. / 9. * r6) {
-		return (-std::powf(Math::E, -(mass - 2000. / 9. * r6) / 10000) + 1) *
-							 RADIUS_M +
-					 10. / 3. * r6;
-	}
-	return std::pow(mass, 1. / 3.);
-}
-
-std::map<std::string, bool> keys;
-
-struct HistoryRecord {
-	int frame, mass, strength;
-	HistoryRecord(int frame, int mass, int strength)
-			: frame(frame), mass(mass), strength(strength) {}
-};
-std::vector<HistoryRecord> history;
-LineString historyMassLine;
-std::vector<Vec2> historyStrength;
-Polygon historyStrengthPolygon;
-int64_t joinedFrame = 0;
-int64_t deadFrame = 998244353;
-int kills = 0;
-
 void load() {
-	fontSmall =
-			std::make_unique<Font>(FONT_SIZE_SMALL, FONT_PATH, FontStyle::Bitmap);
-	fontMedium =
-			std::make_unique<Font>(FONT_SIZE_MEDIUM, FONT_PATH, FontStyle::Bitmap);
-	fontLarge =
-			std::make_unique<Font>(FONT_SIZE_LARGE, FONT_PATH, FontStyle::Bitmap);
-	backImage = std::make_unique<Texture>(U"assets/images/back.png");
-	ballImage = std::make_unique<Texture>(U"assets/images/ball.png");
-	prepareImage = std::make_unique<Texture>(U"assets/images/prepare.png");
-	katasaDekasaImage =
-			std::make_unique<Texture>(U"assets/images/katasa_dekasa.png");
-	miniMapImage = std::make_unique<Texture>(U"assets/images/minimap.png");
-	resultImage = std::make_unique<Texture>(U"assets/images/result.png");
-
-	themeAudio = std::make_unique<Audio>(U"assets/sounds/snow-bolo_theme.mp3",
-																			 Arg::loopBegin = THEME_LOOP_BEGIN,
-																			 Arg::loopEnd = THEME_LOOP_END);
-	// Arg::loopBegin = 1741510, Arg::loopEnd = 2799910);
+	loadAssets();
 }
 
 void init() {
@@ -743,23 +588,7 @@ void draw() {
 			{
 				// draw leaderboard
 
-				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X + 1, 10, shadowColor);
-				(*fontSmall)(U"Leaderboard").draw(LEADERBOARD_X, 10, textColor2);
-
-				for(int i = 0; i < leaderBoard.size(); ++i) {
-					auto e = leaderBoard[i];
-					if(e.id == myId) {
-						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
-						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 30 + i * 20, textColor2);
-					} else {
-						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X + 1, 30 + i * 20, shadowColor);
-						(*fontSmall)(U"{}. {}: {}"_fmt(i + 1, e.name, e.massString))
-								.draw(LEADERBOARD_X, 30 + i * 20, textColor1);
-					}
-				}
+				drawLeaderBoard();
 			}
 
 			{
