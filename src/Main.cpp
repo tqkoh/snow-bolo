@@ -57,8 +57,8 @@ void Main() {
 	const ScopedRenderStates2D renderState(SamplerState::ClampNearest);
 	RenderTexture renderTexture(resolution);
 
-	Title::init();
-	Game::load();
+	Scenes::title.init();
+	Scenes::game.load();
 
 	Stopwatch calcTime(StartImmediately::Yes);
 	while(System::Update()) {
@@ -74,20 +74,20 @@ void Main() {
 						state = GAME;
 					}
 
-					if(Title::update() == 1) {
+					if(Scenes::title.update() == 1) {
 						state = GAME;
-						Title::end();
-						Game::init();
+						Scenes::title.end();
+						Scenes::game.init();
 					}
-					Title::draw();
+					Scenes::title.draw();
 					break;
 
 				case GAME:
-					if(Game::update() == 1) {
+					if(Scenes::game.update() == 1) {
 						state = TITLE;
-						Title::init();
+						Scenes::title.init();
 					}
-					Game::draw();
+					Scenes::game.draw();
 					break;
 				default:
 

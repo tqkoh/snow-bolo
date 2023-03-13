@@ -64,6 +64,6 @@ const ColorF shadowColor(0, .15);
 #define THEME_LOOP_BEGIN 88200 * 19 + 1994900 - 1940400
 #define THEME_LOOP_END 88200 * 19 + 1994900 - 1940400 + 88200 * 12
 
-#define TWEET_URL(maxMass, bestRank, kills)                                                                                                               \
-	U"https://twitter.com/intent/tweet?url=https://tqk.blue/snow-bolo/&text=snow-bolo で遊んだよ！\%0A最大デカさ: {}\%0A最高順位: {}\%0A キル: {}\%0A"_fmt( \
+#define TWEET_URL(maxMass, bestRank, kills)                                                                                                              \
+	U"https://twitter.com/intent/tweet?url=https://tqk.blue/snow-bolo/&text=snow-bolo で遊んだよ！\%0A最大デカさ: {}\%0A最高順位: {}\%0Aキル: {}\%0A"_fmt( \
 			(maxMass), (bestRank), (kills))
