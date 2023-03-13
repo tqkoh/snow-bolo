@@ -4,8 +4,6 @@
 
 namespace Game {
 
-std::unique_ptr<WebSocket> ws;
-
 bool windowVisible = true;
 
 enum GameState {
@@ -17,33 +15,17 @@ enum GameState {
 
 int debugLevel = 0;
 
-// WebSocket ws(API_URL);
+JSON previnput;
+
 TextEditState name;
 Point center(resolution / 2);
 
-JSON previnput;
-JSON lastUpdate;
-JSON lastMyUpdate;
-JSON defaultUpdate;
-
-int damage = 0;
+int myDamage = 0;
 double damageBarAnimation = 0;
 
 double oY = 0, oX = 0, oVY = 0, oVX = 0;
 String id;
 String myId;
-
-enum SpectateMode {
-	OFF,
-	PLAYER,
-	MAP,
-
-	SpectateMode_NUM
-} spectateMode = OFF;
-
-bool resultShowing = false;
-int maxMass = 0;
-int bestRank = 998244353;
 
 double radiusFromMass(double mass) {
 	if(mass <= 0)
@@ -62,5 +44,12 @@ std::map<std::string, bool> keys;
 int64_t joinedFrame = 0;
 int64_t deadFrame = 998244353;
 int kills = 0;
+
+void updateKeys() {
+	keys["W"] = KeyW.pressed() || KeyUp.pressed();
+	keys["A"] = KeyA.pressed() || KeyLeft.pressed();
+	keys["S"] = KeyS.pressed() || KeyDown.pressed();
+	keys["D"] = KeyD.pressed() || KeyRight.pressed();
+}
 
 }	 // namespace Game
