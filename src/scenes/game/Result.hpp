@@ -22,6 +22,13 @@ JSON lastUpdate;
 JSON lastMyUpdate;
 JSON defaultUpdate;
 
+String shorten(String str, int l) {
+	if(str.size() > l) {
+		return str.substr(0, l - 2) + U"..";
+	}
+	return String(l - str.size(), U' ') + str;
+}
+
 class History {
 public:
 	struct HistoryRecord {
@@ -87,6 +94,28 @@ public:
 		historyStrengthPolygon.draw(paintColor1);
 		historyMassLine.draw(2, textColor2);
 	}
-} history;
+};
+
+class Result {
+	History history;
+
+public:
+	Result() {}
+	void init() { history.init(); }
+	void update() { history.update(); }
+	void prepareDraw() { history.prepareDraw(); }
+	void draw() {
+		resultImage->draw(0, 0);
+		history.draw();
+
+		(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90 + 1, 84, shadowColor);
+		(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor1);
+		(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
+				.draw(90 + 1, 119, shadowColor);
+		(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8)).draw(90, 119, textColor1);
+		(*fontSmall)(shorten(U"{}"_fmt(kills), 8)).draw(90 + 1, 152, shadowColor);
+		(*fontSmall)(shorten(U"{}"_fmt(kills), 8)).draw(90, 152, textColor1);
+	}
+} result;
 
 }	 // namespace Game

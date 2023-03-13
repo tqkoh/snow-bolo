@@ -6,7 +6,7 @@
 #include "lib/WebSocket.hpp"
 
 #include "game/Assets.hpp"
-#include "game/ChatMessage.hpp"
+#include "game/Chat.hpp"
 #include "game/Communicate.hpp"
 #include "game/DamageAnimation.hpp"
 #include "game/LeaderBoard.hpp"
@@ -49,12 +49,120 @@ void join() {
 	name.active = false;
 	spectateMode = OFF;
 	resultShowing = false;
-	history.init();
+	result.init();
 	joinedFrame = frame;
 	deadFrame = 998244353;
 	maxMass = 0;
 	bestRank = 998244353;
 }
+
+void processInput() {
+	if(spectateMode == OFF) {
+		sendInput();
+
+		result.update();
+	} else {
+		if(spectateMode == PLAYER) {
+			if(KeyShift.down()) {
+				spectateMode = MAP;
+				id = U"";
+			}
+		}
+		if(resultShowing && KeyEnter.down()) {
+			join();
+		}
+
+		if(resultShowing && KeyT.down()) {
+			String url = TWEET_URL(maxMass, bestRank, kills);
+			openLink(url.narrow().c_str());
+		}
+		if(KeyEscape.down()) {
+			resultShowing = !resultShowing;
+		}
+	}
+}
+
+void preprocessUsers() {
+	leaderBoard.clear();
+	if(lastUpdate.hasElement(U"users")) {
+		for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+			double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
+			lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
+
+			if(i < 5) {
+				leaderBoard.place(lastUpdate[U"users"][i][U"id"].get<String>(),
+													lastUpdate[U"users"][i][U"name"].get<String>(),
+													int(lastUpdate[U"users"][i][U"mass"].get<double>()));
+			}
+
+			if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
+				maxMass = std::max(maxMass, int(mass));
+				bestRank = std::min(bestRank, i + 1);
+				if(mass < 1) {
+					0 && printf("0.1\n");
+				}
+				lastMyUpdate = lastUpdate[U"users"][i];
+
+				// conceal lag
+				oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
+				oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
+				oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
+						 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
+				oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
+						 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
+			}
+		}
+	}
+}
+
+void processInputSpectating() {
+	if(spectateMode == MAP) {
+		if(keys["W"] == keys["S"]) {
+			oVY = double(oVY - oVY * V_K);
+		} else if(keys["W"]) {
+			oVY = double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
+		} else {
+			oVY = double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
+		}
+		if(keys["A"] == keys["D"]) {
+			oVX = double(oVX - oVX * V_K);
+		} else if(keys["A"]) {
+			oVX = double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
+		} else {
+			oVX = double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
+		}
+		oY += oVY;
+		oX += oVX;
+	}
+	if(spectateMode == MAP || spectateMode == PLAYER) {
+		// start spectating user clicked
+		if(MouseL.down()) {
+			Vec2 p = Cursor::Pos() / scaling + Vec2(oX, oY);
+			int startedSpectating = 0;
+			for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
+				double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
+				Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
+								 lastUpdate[U"users"][i][U"y"].get<double>());
+				if((p - pos).length() < radius) {
+					spectateMode = PLAYER;
+					id = lastUpdate[U"users"][i][U"id"].get<String>();
+					startedSpectating = 1;
+					chat.push(U"spectating {}"_fmt(
+												lastUpdate[U"users"][i][U"name"].get<String>()),
+										frame);
+					chat.push(U"shift to dismount", frame);
+
+					break;
+				}
+			}
+			if(!startedSpectating) {
+				spectateMode = MAP;
+				id = U"";
+			}
+		}
+	}
+}
+
 int update() {
 	if(ws->disconnected) {
 		Console << U"disconnected from server";
@@ -76,115 +184,10 @@ int update() {
 		}
 		case PLAYING: {
 			receive();
+			processInput();
+			preprocessUsers();
+			processInputSpectating();
 
-			if(spectateMode == OFF) {
-				sendInput();
-
-				// update history
-				history.update();
-			} else {
-				if(spectateMode == PLAYER) {
-					if(KeyShift.down()) {
-						spectateMode = MAP;
-						id = U"";
-					}
-				}
-				if(resultShowing && KeyEnter.down()) {
-					join();
-				}
-
-				if(resultShowing && KeyT.down()) {
-					String url = TWEET_URL(maxMass, bestRank, kills);
-					openLink(url.narrow().c_str());
-				}
-				if(KeyEscape.down()) {
-					resultShowing = !resultShowing;
-				}
-			}
-
-			// update users' data
-			leaderBoard.clear();
-			if(lastUpdate.hasElement(U"users")) {
-				for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
-					double mass = lastUpdate[U"users"][i][U"mass"].get<double>();
-					lastUpdate[U"users"][i][U"radius"] = radiusFromMass(mass);
-
-					if(i < 5) {
-						leaderBoard.emplace_back(
-								lastUpdate[U"users"][i][U"id"].get<String>(),
-								lastUpdate[U"users"][i][U"name"].get<String>(),
-								int(lastUpdate[U"users"][i][U"mass"].get<double>()));
-					}
-
-					if(lastUpdate[U"users"][i][U"id"].get<String>() == id) {
-						maxMass = std::max(maxMass, int(mass));
-						bestRank = std::min(bestRank, i + 1);
-						if(mass < 1) {
-							0 && printf("0.1\n");
-						}
-						lastMyUpdate = lastUpdate[U"users"][i];
-
-						// conceal lag
-						oVY = lastUpdate[U"users"][i][U"vy"].get<double>();
-						oVX = lastUpdate[U"users"][i][U"vx"].get<double>();
-						oY = lastUpdate[U"users"][i][U"y"].get<double>() - center.y +
-								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVY;
-						oX = lastUpdate[U"users"][i][U"x"].get<double>() - center.x +
-								 (frame - lastUpdate[U"timestamp"].get<int>()) * oVX;
-					}
-				}
-			}
-
-			if(spectateMode == MAP) {
-				0 && printf("00");
-				// update origin using input
-				if(keys["W"] == keys["S"]) {
-					oVY = double(oVY - oVY * V_K);
-				} else if(keys["W"]) {
-					oVY = double(oVY + (-oVY / MAX_V - 1.) * MAX_V * V_K);
-				} else {
-					oVY = double(oVY + (1. - oVY / MAX_V) * MAX_V * V_K);
-				}
-				if(keys["A"] == keys["D"]) {
-					oVX = double(oVX - oVX * V_K);
-				} else if(keys["A"]) {
-					oVX = double(oVX + (-oVX / MAX_V - 1.) * MAX_V * V_K);
-				} else {
-					oVX = double(oVX + (1. - oVX / MAX_V) * MAX_V * V_K);
-				}
-				oY += oVY;
-				oX += oVX;
-			}
-			if(spectateMode == MAP || spectateMode == PLAYER) {
-				// start spectating user clicked
-				if(MouseL.down()) {
-					Vec2 p = Cursor::Pos() / scaling + Vec2(oX, oY);
-					int startedSpectating = 0;
-					for(int i = 0; i < lastUpdate[U"users"].size(); i++) {
-						double radius = lastUpdate[U"users"][i][U"radius"].get<double>();
-						Vec2 pos(lastUpdate[U"users"][i][U"x"].get<double>(),
-										 lastUpdate[U"users"][i][U"y"].get<double>());
-						if((p - pos).length() < radius) {
-							spectateMode = PLAYER;
-							id = lastUpdate[U"users"][i][U"id"].get<String>();
-							startedSpectating = 1;
-							chatMessages.emplace_back(
-									U"spectating {}"_fmt(
-											lastUpdate[U"users"][i][U"name"].get<String>()),
-									frame);
-							chatMessages.emplace_back(U"shift to dismount", frame);
-
-							break;
-						}
-					}
-					if(!startedSpectating) {
-						spectateMode = MAP;
-						id = U"";
-					}
-				}
-			}
-			if(debugLevel > 5)
-				printf("update.1");
 			break;
 		}
 
@@ -199,8 +202,6 @@ int update() {
 	return 0;
 }
 void draw() {
-	// (*font)(U"Hello, Siv3D!🚀").drawAt(Scene::Center() / 11,
-	// Palette::Green);
 	switch(state) {
 		case PREPARE: {
 			SimpleGUI::TextBox(name, Vec2(-1000, -1000), 100, 12);
@@ -217,29 +218,10 @@ void draw() {
 			break;
 		}
 		case PLAYING: {
-			if(spectateMode == MAP)
-				0 && printf("33\n");
-			// draw background
-			int cy = MOD(int(-oY), resolution.y), cx = MOD(int(-oX), resolution.x),
-					odd = MOD(int(-oY) / resolution.y, 2);
-
-			// ballImage->draw(cx - resolution.x, cy - resolution.y * odd);
-			// ballImage->draw(cx, cy - resolution.y * odd);
-			// if(center.x < cx) {
-			// 	cx -= center.x;
-			// } else {
-			// 	cx += center.x;
-			// }
-			// ballImage->draw(cx - resolution.x, cy - resolution.y * !odd);
-			// ballImage->draw(cx, cy - resolution.y * !odd);
-
 			backImage->draw(-oX, -oY);
 			Rect(MAP_MARGIN - oX, MAP_MARGIN - oY, MAP_WIDTH - MAP_MARGIN * 2,
 					 MAP_HEIGHT - MAP_MARGIN * 2)
 					.drawFrame(0, 1, shadowColor);
-			// backImage->overwrite(*backAndBallImage, 0, 0);
-
-			// Circle{Cursor::Pos() / scaling, 20}.draw(ColorF{1, 1, 0, 0.5});
 
 			if(lastUpdate.hasElement(U"mass") &&
 				 lastMyUpdate[U"mass"].get<double>() < 1) {
@@ -440,57 +422,15 @@ void draw() {
 				}
 			}
 
-			if(spectateMode == MAP)
-				0 && printf("66\n");
+			// draw leaderboard
+			leaderBoard.draw();
 
-			{
-				// draw leaderboard
+			// draw chat
+			chat.draw();
 
-				drawLeaderBoard();
-			}
-
-			{
-				// draw chat
-				while(chatMessages.size()) {
-					auto&& e = chatMessages.front();
-					if(e.timestamp + CHAT_REMAIN < frame) {
-						chatMessages.pop_front();
-					} else {
-						break;
-					}
-				}
-				while(chatMessages.size() > 10) {
-					chatMessages.pop_front();
-				}
-				{
-					int i = 0, n = chatMessages.size();
-					for(auto e : chatMessages) {
-						++i;
-						(*fontSmall)(e.message).draw(
-								11, resolution.y - 90 - (n - 1 - i) * 20, shadowColor);
-						(*fontSmall)(e.message).draw(
-								10, resolution.y - 90 - (n - 1 - i) * 20, textColor1);
-					}
-				}
-			}
-
-			{
-				if(resultShowing) {
-					// draw result
-					resultImage->draw(0, 0);
-					history.draw();
-
-					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8))
-							.draw(90 + 1, 84, shadowColor);
-					(*fontSmall)(shorten(U"{}"_fmt(maxMass), 8)).draw(90, 84, textColor1);
-					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
-							.draw(90 + 1, 119, shadowColor);
-					(*fontSmall)(shorten(U"{}"_fmt(bestRank), 8))
-							.draw(90, 119, textColor1);
-					(*fontSmall)(shorten(U"{}"_fmt(kills), 8))
-							.draw(90 + 1, 152, shadowColor);
-					(*fontSmall)(shorten(U"{}"_fmt(kills), 8)).draw(90, 152, textColor1);
-				}
+			if(resultShowing) {
+				// draw result
+				result.draw();
 			}
 			break;
 		}

@@ -38,13 +38,13 @@ void receive() {
 			spectateMode = MAP;
 			deadFrame = frame;
 
-			history.prepareDraw();
+			result.prepareDraw();
 		} else if(json[U"method"] == U"update") {
 			lastUpdate = json[U"args"];
 			lastUpdate[U"timestamp"] = frame;
 		} else if(json[U"method"] == U"message") {
 			String message = json[U"args"][U"message"].get<String>();
-			chatMessages.emplace_back(message, frame);
+			chat.push(message, frame);
 		}
 		// } catch(...) {
 		// 	0&&printf("parse failed: %s\n",
