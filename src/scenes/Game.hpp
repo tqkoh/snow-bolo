@@ -347,7 +347,7 @@ public:
 
 		defaultUpdate = JSON::Load(U"assets/data/defaultUpdate.json");
 
-		themeAudio->play();
+		// themeAudio->play();
 	}
 	void join() {
 		sendJoin();
