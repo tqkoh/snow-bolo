@@ -2,7 +2,7 @@
 
 #include <Siv3D.hpp>
 
-#define DEV 0
+#define DEV 2
 
 #if DEV == 0
 #define API_URL "wss://tqk.trap.show/snow-bolo-server/api/ws"
